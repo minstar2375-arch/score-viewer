@@ -1,6 +1,6 @@
 // 마이크로 연습을 녹음해 악보별로 저장하고 다시 듣습니다.
 import * as db from './db.js';
-import { toast, hideToast, confirmDialog } from './ui.js';
+import { toast, hideToast, confirmDialog, setToolCount } from './ui.js';
 import { saveBlob } from './platform.js';
 import { setTrackSink, pausePractice } from './practice.js';
 
@@ -237,6 +237,7 @@ function stopRecording({ message = '녹음을 저장했습니다.' } = {}) {
           // 원본을 먼저 저장해 두어 변환 중 앱이 닫혀도 녹음이 남습니다.
           await db.addRecording(saved);
           toast(message);
+          refreshCount().catch(console.error);
           ensureMp3(saved).then(() => {
             if (current.scoreId === scoreId && !els.panel.hidden && !playing) renderList().catch(console.error);
           });
@@ -596,6 +597,13 @@ async function renderList() {
   recordings.sort((a, b) => b.createdAt - a.createdAt);
   els.list.replaceChildren(...recordings.map(recordingRow));
   els.empty.hidden = recordings.length > 0;
+  setToolCount(els.toggle, recordings.length, '녹음');
+}
+
+async function refreshCount() {
+  const id = scoreId;
+  const recordings = id ? await db.listRecordings(id) : [];
+  if (id === scoreId) setToolCount(els.toggle, recordings.length, '녹음');
 }
 
 function setPanelOpen(open) {
@@ -611,6 +619,7 @@ function setPanelOpen(open) {
 
 export function setRecorderScore(id) {
   scoreId = id;
+  if (els) refreshCount().catch(console.error);
 }
 
 // 악보를 닫을 때 호출합니다. 녹음 중이면 저장까지 마칩니다.

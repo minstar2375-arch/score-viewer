@@ -58,7 +58,14 @@ function icon(name) {
   return svg;
 }
 
-function scoreCard(score) {
+function attachmentText({ recordings = 0, tracks = 0 } = {}) {
+  const parts = [];
+  if (recordings) parts.push(`녹음 ${recordings}`);
+  if (tracks) parts.push(`음원 ${tracks}`);
+  return parts.join(' · ');
+}
+
+function scoreCard(score, counts) {
   const card = document.createElement('article');
   card.className = 'card';
 
@@ -87,6 +94,14 @@ function scoreCard(score) {
     : `${score.pageCount}쪽`;
 
   open.append(frame, title, meta);
+
+  const attachments = attachmentText(counts);
+  if (attachments) {
+    const line = document.createElement('p');
+    line.className = 'attachments';
+    line.textContent = attachments;
+    open.append(line);
+  }
 
   const more = document.createElement('button');
   more.type = 'button';
@@ -131,6 +146,11 @@ function closeCardMenus() {
 
 async function renderLibrary() {
   const scores = await db.listScores();
+  // 개수를 세지 못해도 악보 목록은 보여 줍니다.
+  const counts = await db.countAttachments().catch((err) => {
+    console.warn('녹음과 음원 개수를 세지 못했습니다', err);
+    return new Map();
+  });
   scores.sort(SORTERS[sortMode]);
   $('sortBar').hidden = scores.length === 0;
   const query = searchEl.value.trim().toLowerCase();
@@ -138,7 +158,7 @@ async function renderLibrary() {
 
   thumbUrls.forEach(URL.revokeObjectURL);
   thumbUrls = [];
-  gridEl.replaceChildren(...shown.map(scoreCard));
+  gridEl.replaceChildren(...shown.map((score) => scoreCard(score, counts.get(score.id))));
   emptyEl.hidden = scores.length > 0;
   noResultEl.hidden = !(scores.length > 0 && shown.length === 0);
   searchEl.hidden = scores.length === 0;

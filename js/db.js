@@ -116,6 +116,28 @@ export const putTrack = (track) =>
 export const deleteTrack = (id) =>
   run('tracks', 'readwrite', (tx) => tx.objectStore('tracks').delete(id));
 
+// 악보별 녹음과 음원 개수를 셉니다. 파일 내용은 읽지 않아 악보가 많아도 빠릅니다.
+export async function countAttachments() {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const counts = new Map(); // 악보 ID -> { recordings, tracks }
+    const tx = db.transaction(['recordings', 'tracks'], 'readonly');
+    for (const name of ['recordings', 'tracks']) {
+      tx.objectStore(name).index('scoreId').openKeyCursor().onsuccess = (e) => {
+        const cursor = e.target.result;
+        if (!cursor) return;
+        const entry = counts.get(cursor.key) ?? { recordings: 0, tracks: 0 };
+        entry[name] += 1;
+        counts.set(cursor.key, entry);
+        cursor.continue();
+      };
+    }
+    tx.oncomplete = () => resolve(counts);
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+}
+
 export async function getNotes(scoreId, page) {
   const row = await run('notes', 'readonly', (tx) =>
     tx.objectStore('notes').get(`${scoreId}:${page}`));

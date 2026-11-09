@@ -14,6 +14,24 @@ export function hideToast() {
   toastEl().hidden = true;
 }
 
+// 도구 버튼에 저장된 개수를 작은 숫자로 표시합니다.
+export function setToolCount(button, count, label) {
+  let badge = button.querySelector('.tool-count');
+  if (!count) {
+    badge?.remove();
+    button.setAttribute('aria-label', label);
+    return;
+  }
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.className = 'tool-count';
+    badge.setAttribute('aria-hidden', 'true');
+    button.append(badge);
+  }
+  badge.textContent = count > 99 ? '99+' : String(count);
+  button.setAttribute('aria-label', `${label} ${count}개`);
+}
+
 function openDialog({ title, message = '', ok, danger = false, value = null, alertOnly = false }) {
   const dlg = document.getElementById('dlg');
   const input = document.getElementById('dlgInput');

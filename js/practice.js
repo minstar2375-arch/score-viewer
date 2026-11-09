@@ -1,7 +1,7 @@
 // 악보를 보면서 듣는 연습 음원입니다.
 // 음원은 기기에 저장한 파일(MP3 등)이거나 YouTube, YouTube Music 곡 링크입니다.
 import * as db from './db.js';
-import { toast, confirmDialog, promptDialog } from './ui.js';
+import { toast, confirmDialog, promptDialog, setToolCount } from './ui.js';
 import { youTubeEnabled } from './platform.js';
 
 const $ = (id) => document.getElementById(id);
@@ -536,7 +536,16 @@ async function renderList() {
   tracks.sort((a, b) => a.createdAt - b.createdAt);
   els.list.replaceChildren(...tracks.map(trackRow));
   els.empty.hidden = tracks.length > 0;
+  setToolCount(els.toggle, tracks.length, '연습 음원');
   refreshRows();
+}
+
+async function refreshCount() {
+  const id = scoreId;
+  const all = id ? await db.listTracks(id) : [];
+  if (id !== scoreId) return;
+  const shown = all.filter((track) => youTubeEnabled || track.kind !== 'youtube');
+  setToolCount(els.toggle, shown.length, '연습 음원');
 }
 
 async function removeTrack(track) {
@@ -691,6 +700,7 @@ function initBoxDrag() {
 
 export function setPracticeScore(id) {
   scoreId = id;
+  if (els) refreshCount().catch(console.error);
 }
 
 export function closePractice() {
