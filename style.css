@@ -119,6 +119,8 @@ button.primary .icon { width: 18px; height: 18px; stroke-width: 2; }
   -webkit-backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
 }
+.brand { display: flex; align-items: center; gap: 10px; flex: none; }
+.brand img { display: block; border-radius: 8px; }
 .lib-header h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.03em; white-space: nowrap; }
 
 #search {
