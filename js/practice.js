@@ -18,6 +18,7 @@ let ticker = null;
 let seeking = false;
 let saveTimer = null;
 let tapHintTimer = null;
+let trackSink = null;
 
 const newId = () =>
   crypto.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
@@ -133,6 +134,7 @@ function fileEngine(track) {
     }
   });
   return {
+    element: audio,
     speeds: FILE_SPEEDS,
     start: () => start,
     setStart: (value) => {
@@ -437,14 +439,25 @@ function closeEngine() {
   clearTimeout(tapHintTimer);
   clearInterval(ticker);
   ticker = null;
+  if (engine) trackSink?.(null);
   engine?.destroy();
   engine = null;
+}
+
+export function pausePractice() {
+  if (engine?.playing()) engine.pause();
+}
+
+// 녹음 기능이 지금 재생하는 음원을 알 수 있게 합니다.
+export function setTrackSink(fn) {
+  trackSink = fn;
 }
 
 function selectTrack(track, { autoplay = true } = {}) {
   closeEngine();
   current = track;
   engine = track.kind === 'youtube' ? youTubeEngine(track) : fileEngine(track);
+  trackSink?.({ element: engine.element ?? null, kind: track.kind });
   els.bar.hidden = false;
   els.name.textContent = track.name;
   els.play.dataset.state = '';

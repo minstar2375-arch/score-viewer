@@ -1,7 +1,7 @@
 // 앱 화면을 저장해 인터넷 없이도 열리게 합니다. 파일을 고치면 VERSION을 올리세요.
 importScripts('vendor/pdfjs/assets.js');
 
-const VERSION = 'v13';
+const VERSION = 'v15';
 const CACHE = `score-viewer-${VERSION}`;
 // 피아노 녹음: A0, C1 ~ A7(3반음 간격), C8
 const PIANO_SAMPLES = ['A0', 'C8'];
@@ -21,6 +21,8 @@ const SHELL = [
   'js/pdf.js',
   'js/piano.js',
   'js/practice.js',
+  'js/mp3-worker.js',
+  'vendor/lamejs/lame.min.js',
   'js/recorder.js',
   'js/ui.js',
   'js/viewer.js',

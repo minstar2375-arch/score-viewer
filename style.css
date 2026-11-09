@@ -351,6 +351,7 @@ button.primary .icon { width: 18px; height: 18px; stroke-width: 2; }
 .rec-when { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rec-length { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .rec-seek { display: block; width: 100%; height: 24px; margin: 2px 0 0; accent-color: var(--ink); }
+.rec-note { flex: none; margin-top: 8px; padding: 0 6px; font-size: 13px; line-height: 1.45; color: var(--muted); }
 .rec-empty { padding: 18px 8px 12px; text-align: center; font-size: 13px; color: var(--muted); }
 
 .rec-pill {
