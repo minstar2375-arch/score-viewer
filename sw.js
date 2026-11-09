@@ -1,7 +1,7 @@
 // 앱 화면을 저장해 인터넷 없이도 열리게 합니다. 파일을 고치면 VERSION을 올리세요.
 importScripts('vendor/pdfjs/assets.js');
 
-const VERSION = 'v4';
+const VERSION = 'v5';
 const CACHE = `score-viewer-${VERSION}`;
 // 피아노 녹음: A0, C1 ~ A7(3반음 간격), C8
 const PIANO_SAMPLES = ['A0', 'C8'];
@@ -31,7 +31,9 @@ const SHELL = [
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting()));
+  // 브라우저 캐시의 예전 파일이 새 버전에 섞이지 않도록 서버에서 직접 받습니다.
+  const fresh = SHELL.map((url) => new Request(url, { cache: 'reload' }));
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(fresh)).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (event) => {
