@@ -377,15 +377,42 @@ button.primary .icon { width: 18px; height: 18px; stroke-width: 2; }
 
 .practice-bar {
   flex: none;
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 4px max(8px, env(safe-area-inset-right)) 4px max(8px, env(safe-area-inset-left));
+  padding: 6px max(12px, env(safe-area-inset-right)) 8px max(12px, env(safe-area-inset-left));
   background: var(--bg);
   box-shadow: 0 -1px 0 var(--line);
 }
-.practice-text { font-size: 13px; font-weight: 600; white-space: nowrap; }
-.practice-main { flex: 1; min-width: 0; padding: 0 8px; }
+.practice-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin-top: 2px;
+}
+.practice-play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 112px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--ink-inverse);
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+  touch-action: manipulation;
+}
+.practice-play .icon { fill: currentColor; }
+.practice-text { min-width: 48px; background: var(--fill); border-radius: 999px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.practice-group { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; }
+.practice-label { font-size: 12px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.practice-volume { flex: 1 1 110px; min-width: 110px; }
+.practice-volume input { flex: 1; min-width: 60px; height: 40px; margin: 0; accent-color: var(--ink); }
+.practice-close { margin-left: auto; }
+.practice-main { min-width: 0; }
 .practice-info { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .practice-name { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 13px; font-weight: 600; }
 .practice-time { flex: none; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -413,7 +440,7 @@ button.primary .icon { width: 18px; height: 18px; stroke-width: 2; }
   border-radius: 50%;
   background: var(--ink);
 }
-.practice-loop { min-width: 36px; font-size: 14px; font-weight: 700; color: var(--muted); }
+.practice-loop { min-width: 40px; background: var(--fill); font-size: 14px; font-weight: 700; color: var(--ink); }
 .practice-loop.active { background: var(--accent) !important; color: #fff; }
 .practice-speed {
   height: 34px;
@@ -431,7 +458,7 @@ button.primary .icon { width: 18px; height: 18px; stroke-width: 2; }
 .yt-box {
   position: fixed;
   right: 12px;
-  bottom: calc(112px + env(safe-area-inset-bottom));
+  bottom: calc(170px + env(safe-area-inset-bottom));
   z-index: 2;
   width: 260px;
   overflow: hidden;
@@ -480,10 +507,7 @@ button.primary .icon { width: 18px; height: 18px; stroke-width: 2; }
   text-decoration: none;
 }
 
-@media (max-width: 760px) {
-  .practice-bar { flex-wrap: wrap; }
-  .practice-main { order: -1; flex-basis: 100%; }
-}
+.rec-row.current .rec-when { color: var(--accent); font-weight: 700; }
 
 /* ---------- 뷰어 ---------- */
 

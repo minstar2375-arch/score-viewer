@@ -170,16 +170,23 @@
     </aside>
 
     <section id="practiceBar" class="practice-bar" aria-label="연습 음원 재생" hidden>
-      <button type="button" id="practicePlay" class="tb" aria-label="재생"><svg class="icon" aria-hidden="true"><use href="#i-play"/></svg></button>
-      <button type="button" id="practiceBack" class="tb practice-text" aria-label="5초 뒤로" title="5초 뒤로">−5초</button>
       <div class="practice-main">
         <div class="practice-info"><span id="practiceName" class="practice-name"></span><span id="practiceTime" class="practice-time"></span></div>
         <input id="practiceSeek" class="practice-seek" type="range" min="0" max="0" step="0.05" value="0" aria-label="재생 위치">
       </div>
-      <button type="button" id="practiceA" class="tb practice-loop" aria-label="반복 시작 지점" title="반복 시작 지점">A</button>
-      <button type="button" id="practiceB" class="tb practice-loop" aria-label="반복 끝 지점" title="반복 끝 지점">B</button>
-      <select id="practiceSpeed" class="practice-speed" aria-label="재생 속도"></select>
-      <button type="button" id="practiceClose" class="tb" aria-label="재생 막대 닫기" title="닫기"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+      <div class="practice-controls">
+        <button type="button" id="practicePlay" class="practice-play"><svg class="icon" aria-hidden="true"><use href="#i-play"/></svg><span>재생</span></button>
+        <button type="button" id="practiceBack" class="tb practice-text" aria-label="5초 뒤로" title="5초 뒤로">−5초</button>
+        <button type="button" id="practiceForward" class="tb practice-text" aria-label="5초 앞으로" title="5초 앞으로">+5초</button>
+        <div class="practice-group" role="group" aria-label="구간 반복">
+          <span class="practice-label">구간</span>
+          <button type="button" id="practiceA" class="tb practice-loop" aria-label="반복 시작 지점" title="반복 시작 지점">A</button>
+          <button type="button" id="practiceB" class="tb practice-loop" aria-label="반복 끝 지점" title="반복 끝 지점">B</button>
+        </div>
+        <label class="practice-group"><span class="practice-label">속도</span><select id="practiceSpeed" class="practice-speed"></select></label>
+        <label class="practice-group practice-volume"><span class="practice-label">음량</span><input id="practiceVolume" type="range" min="0" max="1" step="0.05" value="1"></label>
+        <button type="button" id="practiceClose" class="tb practice-close" aria-label="재생 끝내기" title="재생 끝내기"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+      </div>
     </section>
 
     <section id="piano" class="piano" aria-label="피아노 건반" hidden>

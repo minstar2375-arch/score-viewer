@@ -57,6 +57,7 @@ function fileEngine(track) {
     pause: () => audio.pause(),
     seek: (t) => { audio.currentTime = t; },
     setRate: (rate) => { audio.playbackRate = rate; },
+    setVolume: (volume) => { audio.volume = volume; },
     time: () => audio.currentTime,
     duration: () => (Number.isFinite(audio.duration) ? audio.duration : track.duration || 0),
     playing: () => !audio.paused && !audio.ended,
@@ -120,6 +121,7 @@ function youTubeEngine(track) {
   let ready = false;
   let wanted = null; // 준비되기 전에 누른 재생
   let rate = 1;
+  let volume = 1;
   let startAt = null;
   const mount = showYouTubeBox(track.videoId);
 
@@ -140,6 +142,10 @@ function youTubeEngine(track) {
     setRate: (value) => {
       rate = value;
       if (ready) player.setPlaybackRate(value);
+    },
+    setVolume: (value) => {
+      volume = value;
+      if (ready) player.setVolume(Math.round(value * 100));
     },
     time: () => (ready ? player.getCurrentTime() || 0 : 0),
     duration: () => (ready ? player.getDuration() || 0 : 0),
@@ -175,6 +181,7 @@ function youTubeEngine(track) {
           if (destroyed) return;
           ready = true;
           player.setPlaybackRate(rate);
+          player.setVolume(Math.round(volume * 100));
           if (startAt !== null) player.seekTo(startAt, true);
           if (wanted) player.playVideo();
           const title = player.getVideoData?.().title;
@@ -244,10 +251,31 @@ function tick() {
   const isPlaying = engine.playing();
   if (els.play.dataset.state !== String(isPlaying)) {
     els.play.dataset.state = String(isPlaying);
-    els.play.replaceChildren(icon(isPlaying ? 'pause' : 'play'));
-    els.play.setAttribute('aria-label', isPlaying ? '일시정지' : '재생');
+    const label = document.createElement('span');
+    label.textContent = isPlaying ? '일시정지' : '재생';
+    els.play.replaceChildren(icon(isPlaying ? 'pause' : 'play'), label);
+    refreshRows();
   }
   refreshLoopMarks(duration);
+}
+
+function togglePlaying() {
+  if (!engine) return;
+  if (engine.playing()) engine.pause();
+  else startPlaying();
+}
+
+// 목록에서도 지금 듣는 곡을 알아보고 일시정지할 수 있게 합니다.
+function refreshRows() {
+  const isPlaying = engine?.playing() ?? false;
+  for (const row of els.list.children) {
+    const isCurrent = row.dataset.id === current?.id;
+    const showPause = isCurrent && isPlaying;
+    row.classList.toggle('current', isCurrent);
+    const button = row.querySelector('.track-play');
+    button.replaceChildren(icon(showPause ? 'pause' : 'play'));
+    button.setAttribute('aria-label', `${row.dataset.name} ${showPause ? '일시정지' : '재생'}`);
+  }
 }
 
 function refreshLoopMarks(duration) {
@@ -329,6 +357,8 @@ function selectTrack(track, { autoplay = true } = {}) {
   els.name.textContent = track.name;
   els.play.dataset.state = '';
   engine.setRate(buildSpeeds(engine.speeds, track.rate ?? 1));
+  els.volume.value = track.volume ?? 1;
+  engine.setVolume(Number(els.volume.value));
   ticker = setInterval(tick, TICK_MS);
   tick();
   if (autoplay) startPlaying();
@@ -338,6 +368,7 @@ function closeBar() {
   closeEngine();
   current = null;
   els.bar.hidden = true;
+  refreshRows();
 }
 
 /* ---------- 음원 목록 ---------- */
@@ -350,13 +381,19 @@ function trackMeta(track) {
 function trackRow(track) {
   const row = document.createElement('li');
   row.className = 'rec-row';
+  row.dataset.id = track.id;
+  row.dataset.name = track.name;
 
   const play = document.createElement('button');
   play.type = 'button';
-  play.className = 'tb';
+  play.className = 'tb track-play';
   play.setAttribute('aria-label', `${track.name} 재생`);
   play.append(icon('play'));
   play.addEventListener('click', () => {
+    if (current?.id === track.id) {
+      togglePlaying(); // 듣던 곡은 처음으로 돌아가지 않고 멈추거나 이어서 재생합니다.
+      return;
+    }
     setPanelOpen(false);
     selectTrack(track);
   });
@@ -390,6 +427,7 @@ async function renderList() {
   tracks.sort((a, b) => a.createdAt - b.createdAt);
   els.list.replaceChildren(...tracks.map(trackRow));
   els.empty.hidden = tracks.length > 0;
+  refreshRows();
 }
 
 async function removeTrack(track) {
@@ -566,6 +604,8 @@ export function initPractice() {
     name: $('practiceName'),
     play: $('practicePlay'),
     back: $('practiceBack'),
+    forward: $('practiceForward'),
+    volume: $('practiceVolume'),
     seek: $('practiceSeek'),
     time: $('practiceTime'),
     a: $('practiceA'),
@@ -591,12 +631,17 @@ export function initPractice() {
     if (files.length) addFiles(files).catch(console.error);
   });
 
-  els.play.addEventListener('click', () => {
-    if (!engine) return;
-    if (engine.playing()) engine.pause();
-    else startPlaying();
-  });
+  els.play.addEventListener('click', togglePlaying);
   els.back.addEventListener('click', () => engine?.seek(Math.max(0, engine.time() - 5)));
+  els.forward.addEventListener('click', () => {
+    if (engine) engine.seek(Math.min(engine.duration() || Infinity, engine.time() + 5));
+  });
+  els.volume.addEventListener('input', () => {
+    if (!engine || !current) return;
+    current.volume = Number(els.volume.value);
+    engine.setVolume(current.volume);
+    scheduleSave();
+  });
   els.a.addEventListener('click', () => setLoopPoint('a'));
   els.b.addEventListener('click', () => setLoopPoint('b'));
   els.speed.addEventListener('change', () => {
