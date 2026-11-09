@@ -38,24 +38,116 @@ function icon(name) {
   return svg;
 }
 
+/* ---------- 앞부분 무음 찾기 ---------- */
+
+// 곡에서 가장 큰 소리보다 40dB 넘게 작은 구간만 무음으로 봅니다. 여리게 시작하는 곡이 잘리지 않게 하기 위해서입니다.
+const SILENCE_RATIO = 0.01;
+const ANALYSIS_RATE = 8000;
+const ANALYSIS_WINDOW = 0.02;
+const LEAD_IN = 0.05; // 첫 음이 잘리지 않도록 조금 앞에서 시작합니다.
+const MIN_SILENCE = 0.15; // 이보다 짧은 무음은 그대로 둡니다.
+const PARTIAL_BYTES = 16 * 1048576;
+const MAX_FULL_BYTES = 200 * 1048576;
+
+function findSoundStart(buffer) {
+  const channels = [];
+  for (let c = 0; c < buffer.numberOfChannels; c += 1) channels.push(buffer.getChannelData(c));
+  let peak = 0;
+  for (const data of channels) {
+    for (let i = 0; i < data.length; i += 1) {
+      const level = Math.abs(data[i]);
+      if (level > peak) peak = level;
+    }
+  }
+  if (peak < 0.0001) return 0;
+
+  const threshold = peak * SILENCE_RATIO;
+  const size = Math.max(1, Math.round(buffer.sampleRate * ANALYSIS_WINDOW));
+  for (let start = 0; start < buffer.length; start += size) {
+    const end = Math.min(buffer.length, start + size);
+    for (const data of channels) {
+      let sum = 0;
+      for (let i = start; i < end; i += 1) sum += data[i] * data[i];
+      if (Math.sqrt(sum / (end - start)) > threshold) {
+        const found = Math.max(0, start / buffer.sampleRate - LEAD_IN);
+        return found < MIN_SILENCE ? 0 : found;
+      }
+    }
+  }
+  return 0;
+}
+
+async function decodeForAnalysis(blob) {
+  const decode = async (part) => new OfflineAudioContext(1, 1, ANALYSIS_RATE)
+    .decodeAudioData(await part.arrayBuffer());
+  // 긴 파일은 앞부분만 읽어 메모리를 아낍니다. 앞부분만으로 읽을 수 없는 형식이면 전체를 읽습니다.
+  if (blob.size > PARTIAL_BYTES) {
+    try {
+      return await decode(blob.slice(0, PARTIAL_BYTES, blob.type));
+    } catch { /* 아래에서 전체를 읽습니다 */ }
+    if (blob.size > MAX_FULL_BYTES) throw new Error('파일이 너무 커서 분석하지 않습니다');
+  }
+  return decode(blob);
+}
+
+async function detectSoundStart(blob) {
+  try {
+    return findSoundStart(await decodeForAnalysis(blob));
+  } catch (err) {
+    console.warn('무음 분석 실패', err);
+    return 0; // 분석하지 못해도 처음부터 재생하면 됩니다.
+  }
+}
+
+// 예전에 추가한 음원은 처음 재생할 때 분석합니다.
+function analyzeExisting(track) {
+  if (track.kind !== 'file' || track.soundStart != null) return;
+  detectSoundStart(track.blob).then((start) => {
+    track.soundStart = start;
+    db.putTrack(track).catch(console.error);
+    if (current === track) engine?.setStart?.(start);
+    if (!els.panel.hidden) renderList().catch(console.error);
+  });
+}
+
 /* ---------- 파일 재생 ---------- */
 
 function fileEngine(track) {
   const audio = new Audio();
   const url = URL.createObjectURL(track.blob);
+  let start = track.soundStart ?? 0;
   audio.preservesPitch = true; // 속도를 바꿔도 음 높이는 그대로입니다.
   audio.webkitPreservesPitch = true;
   audio.preload = 'auto';
   audio.src = url;
   audio.addEventListener('error', () => toast('이 음원을 재생할 수 없습니다.'));
+  audio.addEventListener('loadedmetadata', () => {
+    if (audio.currentTime < start) audio.currentTime = start;
+  });
+  // MP3는 처음 알려 준 길이가 어림값일 수 있어, 더 정확한 값을 알게 되면 저장합니다.
+  audio.addEventListener('durationchange', () => {
+    if (Number.isFinite(audio.duration) && Math.abs(audio.duration - (track.duration || 0)) > 0.5) {
+      track.duration = audio.duration;
+      db.putTrack(track).catch(console.error);
+    }
+  });
   return {
     speeds: FILE_SPEEDS,
-    play: () => audio.play().catch((err) => {
-      console.error(err);
-      toast('음원을 재생하지 못했습니다.');
-    }),
+    start: () => start,
+    setStart: (value) => {
+      start = value;
+      if (audio.currentTime < start) audio.currentTime = start;
+    },
+    play: () => {
+      // 끝까지 들은 뒤 다시 누르면 앞의 무음을 건너뛰고 시작합니다.
+      if (audio.ended || audio.currentTime < start) audio.currentTime = start;
+      return audio.play().catch((err) => {
+        console.error(err);
+        toast('음원을 재생하지 못했습니다.');
+      });
+    },
     pause: () => audio.pause(),
-    seek: (t) => { audio.currentTime = t; },
+    seek: (t) => { audio.currentTime = Math.max(start, t); },
     setRate: (rate) => { audio.playbackRate = rate; },
     setVolume: (volume) => { audio.volume = volume; },
     time: () => audio.currentTime,
@@ -242,11 +334,15 @@ function tick() {
     engine.seek(loopA);
   }
 
+  // 시간 표시는 노래가 시작되는 지점을 0:00으로 보여 줍니다.
+  const offset = engine.start?.() ?? 0;
+  els.seek.min = offset;
   if (!seeking) {
     els.seek.max = duration || 0;
     els.seek.value = time;
   }
-  els.time.textContent = `${formatTime(seeking ? Number(els.seek.value) : time)} / ${formatTime(duration)}`;
+  const shown = (seeking ? Number(els.seek.value) : time) - offset;
+  els.time.textContent = `${formatTime(shown)} / ${formatTime(duration - offset)}`;
 
   const isPlaying = engine.playing();
   if (els.play.dataset.state !== String(isPlaying)) {
@@ -284,11 +380,13 @@ function refreshLoopMarks(duration) {
   els.b.classList.toggle('active', loopB != null);
   els.a.setAttribute('aria-pressed', loopA != null);
   els.b.setAttribute('aria-pressed', loopB != null);
-  const hasLoop = duration > 0 && loopA != null && loopB != null;
+  const offset = engine.start?.() ?? 0;
+  const span = duration - offset;
+  const hasLoop = span > 0 && loopA != null && loopB != null;
   els.seek.classList.toggle('looping', hasLoop);
   if (hasLoop) {
-    els.seek.style.setProperty('--a', `${(loopA / duration) * 100}%`);
-    els.seek.style.setProperty('--b', `${(loopB / duration) * 100}%`);
+    els.seek.style.setProperty('--a', `${((loopA - offset) / span) * 100}%`);
+    els.seek.style.setProperty('--b', `${((loopB - offset) / span) * 100}%`);
   }
 }
 
@@ -362,6 +460,7 @@ function selectTrack(track, { autoplay = true } = {}) {
   ticker = setInterval(tick, TICK_MS);
   tick();
   if (autoplay) startPlaying();
+  analyzeExisting(track);
 }
 
 function closeBar() {
@@ -375,7 +474,10 @@ function closeBar() {
 
 function trackMeta(track) {
   if (track.kind === 'youtube') return 'YouTube Music';
-  return `${formatTime(track.duration)} · ${(track.blob.size / 1048576).toFixed(1)}MB`;
+  const skipped = track.soundStart ?? 0;
+  const parts = [formatTime(track.duration - skipped), `${(track.blob.size / 1048576).toFixed(1)}MB`];
+  if (skipped > 0) parts.push(`앞 무음 ${skipped.toFixed(1)}초 건너뜀`);
+  return parts.join(' · ');
 }
 
 function trackRow(track) {
@@ -505,6 +607,7 @@ async function addFiles(files) {
         createdAt: Date.now(),
         duration,
         type: file.type,
+        soundStart: await detectSoundStart(file),
         // 선택한 파일과의 연결이 끊겨도 재생되도록 내용을 복사해 저장합니다.
         blob: new Blob([await file.arrayBuffer()], { type: file.type }),
       };
