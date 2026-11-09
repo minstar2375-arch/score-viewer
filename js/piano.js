@@ -1,5 +1,7 @@
 // 악보를 보면서 음을 확인하는 화면 건반입니다.
-// 소리는 Web Audio로 합성하므로 음원 파일이 없고 인터넷 없이도 납니다.
+// 소리는 그랜드 피아노 녹음(Salamander Grand Piano)을 재생합니다.
+// 3반음 간격 녹음의 높이를 조금씩 바꿔 모든 건반에 씁니다.
+// 녹음을 아직 쓸 수 없을 때만 합성음으로 대신합니다.
 
 const $ = (id) => document.getElementById(id);
 
@@ -66,9 +68,102 @@ function hammerNoise(frequency, t) {
   source.onended = () => gain.disconnect();
 }
 
+/* ---------- 피아노 녹음 ---------- */
+
+const SAMPLE_LOWEST = 21; // A0
+const SAMPLE_STEP = 3;
+const SAMPLE_NAMES = { 0: 'C', 3: 'Ds', 6: 'Fs', 9: 'A' };
+const SAMPLE_GAIN = 2.4;
+const UNDAMPED_FROM = 89; // 이 음부터는 실제 피아노에 댐퍼가 없어 손을 떼도 오래 울립니다.
+
+const sampleLoads = new Map(); // 기준음 -> 불러오는 중인 Promise
+const samples = new Map(); // 기준음 -> { buffer, offset }
+let pendingSamples = 0;
+
+const nearestSampleNote = (midi) => Math.min(HIGHEST_MIDI, Math.max(
+  SAMPLE_LOWEST,
+  SAMPLE_LOWEST + Math.round((midi - SAMPLE_LOWEST) / SAMPLE_STEP) * SAMPLE_STEP,
+));
+
+const sampleUrl = (note) => new URL(
+  `../audio/piano/${SAMPLE_NAMES[note % 12]}${Math.floor(note / 12) - 1}.mp3`,
+  import.meta.url,
+).href;
+
+// MP3 앞부분의 무음을 건너뛰어 누르는 즉시 소리가 나게 합니다.
+function soundStart(buffer) {
+  const data = buffer.getChannelData(0);
+  const limit = Math.min(data.length, Math.floor(buffer.sampleRate * 0.2));
+  for (let i = 0; i < limit; i += 1) {
+    if (Math.abs(data[i]) > 0.003) return Math.max(0, i - 8) / buffer.sampleRate;
+  }
+  return 0;
+}
+
+function loadSample(note) {
+  if (sampleLoads.has(note)) return;
+  pendingSamples += 1;
+  refreshStatus();
+  const load = fetch(sampleUrl(note))
+    .then((response) => {
+      if (!response.ok) throw new Error(`음원 ${response.status}`);
+      return response.arrayBuffer();
+    })
+    .then((data) => ctx.decodeAudioData(data))
+    .then((buffer) => samples.set(note, { buffer, offset: soundStart(buffer) }))
+    .catch((err) => {
+      console.warn(err);
+      sampleLoads.delete(note); // 다음에 건반을 열 때 다시 시도합니다.
+    })
+    .finally(() => {
+      pendingSamples -= 1;
+      refreshStatus();
+    });
+  sampleLoads.set(note, load);
+}
+
+function loadVisibleSamples() {
+  if (!ensureAudio()) return;
+  for (const midi of keyEls.keys()) loadSample(nearestSampleNote(midi));
+}
+
+// 바로 쓸 녹음이 없으면 가까운 음의 녹음으로 대신합니다.
+function sampleFor(midi) {
+  const exact = nearestSampleNote(midi);
+  if (samples.has(exact)) return { note: exact, ...samples.get(exact) };
+  let best = null;
+  for (const note of samples.keys()) {
+    const distance = Math.abs(note - midi);
+    if (distance <= 12 && (!best || distance < Math.abs(best - midi))) best = note;
+  }
+  return best === null ? null : { note: best, ...samples.get(best) };
+}
+
+function playSample(midi, sample) {
+  const t = ctx.currentTime;
+  const source = ctx.createBufferSource();
+  source.buffer = sample.buffer;
+  source.playbackRate.value = 2 ** ((midi - sample.note) / 12);
+  const envelope = ctx.createGain();
+  envelope.gain.value = SAMPLE_GAIN;
+  source.connect(envelope);
+  envelope.connect(master);
+  const voice = { midi, envelope, oscillators: [source], released: false };
+  source.onended = () => {
+    envelope.disconnect();
+    voices.delete(voice);
+  };
+  source.start(t, sample.offset);
+  voices.add(voice);
+  return voice;
+}
+
 function noteOn(midi) {
   if (!ensureAudio()) return null;
   if (voices.size >= MAX_VOICES) noteOff(voices.values().next().value);
+
+  const sample = sampleFor(midi);
+  if (sample) return playSample(midi, sample);
 
   const t = ctx.currentTime;
   const frequency = 440 * 2 ** ((midi - 69) / 12);
@@ -129,10 +224,11 @@ function noteOff(voice) {
     gain.cancelScheduledValues(t);
     gain.setValueAtTime(value, t);
   }
-  gain.setTargetAtTime(0, t, voice.midi < 48 ? 0.14 : 0.08);
+  const undamped = voice.midi >= UNDAMPED_FROM;
+  gain.setTargetAtTime(0, t, undamped ? 0.8 : voice.midi < 48 ? 0.2 : 0.12);
   for (const oscillator of voice.oscillators) {
     try {
-      oscillator.stop(t + 0.7);
+      oscillator.stop(t + (undamped ? 4 : 1));
     } catch { /* 이미 끝난 소리입니다 */ }
   }
 }
@@ -143,6 +239,7 @@ let els;
 let whiteCount = 0;
 let startOctave = null; // null이면 가온 도가 가운데 오도록 자동으로 정합니다.
 let labelMode = 'solfege';
+let rangeText = '';
 const held = new Map(); // pointerId -> { midi, voice }
 const keyEls = new Map(); // midi -> 건반 요소
 
@@ -217,8 +314,14 @@ function buildKeys() {
   const { min, max } = octaveLimits();
   els.down.disabled = octave <= min;
   els.up.disabled = octave >= max;
-  els.range.textContent = `C${octave} ~ ${LETTERS[noteName(lastMidi).whiteIndex]}${noteName(lastMidi).octave}`;
+  rangeText = `C${octave} ~ ${LETTERS[noteName(lastMidi).whiteIndex]}${noteName(lastMidi).octave}`;
   els.labels.textContent = LABEL_BUTTON_TEXT[labelMode];
+  refreshStatus();
+  loadVisibleSamples();
+}
+
+function refreshStatus() {
+  els.range.textContent = pendingSamples ? '음원 준비 중' : rangeText;
 }
 
 function setKeyDown(midi, down) {

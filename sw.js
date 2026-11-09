@@ -1,8 +1,14 @@
 // 앱 화면을 저장해 인터넷 없이도 열리게 합니다. 파일을 고치면 VERSION을 올리세요.
 importScripts('vendor/pdfjs/assets.js');
 
-const VERSION = 'v3';
+const VERSION = 'v4';
 const CACHE = `score-viewer-${VERSION}`;
+// 피아노 녹음: A0, C1 ~ A7(3반음 간격), C8
+const PIANO_SAMPLES = ['A0', 'C8'];
+for (let octave = 1; octave <= 7; octave += 1) {
+  for (const note of ['C', 'Ds', 'Fs', 'A']) PIANO_SAMPLES.push(`${note}${octave}`);
+}
+
 const SHELL = [
   './',
   'index.html',
@@ -21,6 +27,7 @@ const SHELL = [
   'vendor/pdfjs/assets.js',
   // 글꼴을 포함하지 않은 PDF도 인터넷 없이 열리도록 글꼴 자료까지 저장합니다.
   ...self.PDFJS_ASSETS,
+  ...PIANO_SAMPLES.map((name) => `audio/piano/${name}.mp3`),
 ];
 
 self.addEventListener('install', (event) => {

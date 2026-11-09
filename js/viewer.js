@@ -601,9 +601,12 @@ function setTool(tool) {
   }
   els.stage.classList.toggle('drawing', tool !== 'view');
   els.stage.classList.toggle('tool-text', tool === 'text');
-  const hasOptions = tool === 'pen' || tool === 'hl' || tool === 'text';
-  els.options.hidden = !hasOptions;
-  if (hasOptions) refreshOptions();
+  const hasStyle = tool === 'pen' || tool === 'hl' || tool === 'text';
+  els.options.hidden = tool === 'view';
+  els.colors.hidden = !hasStyle;
+  els.sizes.hidden = !hasStyle;
+  els.clear.hidden = tool !== 'eraser';
+  if (hasStyle) refreshOptions();
 }
 
 function refreshOptions() {
@@ -813,6 +816,7 @@ export function initViewer() {
     tools: [...document.querySelectorAll('[data-tool]')],
     options: $('toolOptions'),
     colors: $('colors'),
+    sizes: $('sizes'),
     undo: $('undo'),
     redo: $('redo'),
     clear: $('clearPage'),

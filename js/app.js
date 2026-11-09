@@ -55,30 +55,50 @@ function scoreCard(score) {
   const meta = document.createElement('p');
   meta.className = 'meta';
   meta.textContent = score.lastPage > 1
-    ? `총 ${score.pageCount}쪽 · ${score.lastPage}쪽까지 봄`
-    : `총 ${score.pageCount}쪽`;
+    ? `${score.lastPage} / ${score.pageCount}쪽`
+    : `${score.pageCount}쪽`;
 
   open.append(frame, title, meta);
 
-  const actions = document.createElement('div');
-  actions.className = 'card-actions';
-  const makeAction = (name, label, handler) => {
+  const more = document.createElement('button');
+  more.type = 'button';
+  more.className = 'card-more';
+  more.setAttribute('aria-label', `${score.name} 메뉴`);
+  more.setAttribute('aria-haspopup', 'menu');
+  more.append(icon('more'));
+
+  const menu = document.createElement('div');
+  menu.className = 'card-menu';
+  menu.setAttribute('role', 'menu');
+  menu.hidden = true;
+  const makeItem = (label, handler, danger = false) => {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'icon-btn';
-    btn.title = label;
-    btn.setAttribute('aria-label', `${score.name} ${label}`);
-    btn.append(icon(name));
-    btn.addEventListener('click', handler);
+    btn.setAttribute('role', 'menuitem');
+    btn.textContent = label;
+    if (danger) btn.className = 'danger';
+    btn.addEventListener('click', () => {
+      closeCardMenus();
+      handler();
+    });
     return btn;
   };
-  actions.append(
-    makeAction('rename', '이름 바꾸기', () => renameScore(score)),
-    makeAction('trash', '삭제', () => removeScore(score)),
+  menu.append(
+    makeItem('이름 바꾸기', () => renameScore(score)),
+    makeItem('삭제', () => removeScore(score), true),
   );
+  more.addEventListener('click', () => {
+    const wasOpen = !menu.hidden;
+    closeCardMenus();
+    menu.hidden = wasOpen;
+  });
 
-  card.append(open, actions);
+  card.append(open, more, menu);
   return card;
+}
+
+function closeCardMenus() {
+  for (const menu of document.querySelectorAll('.card-menu')) menu.hidden = true;
 }
 
 async function renderLibrary() {
@@ -177,6 +197,29 @@ async function importFiles(fileList) {
   else if (duplicates) toast('이미 보관함에 있는 악보입니다.');
 }
 
+const THEME_KEY = 'score-viewer:theme';
+const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
+
+const currentTheme = () =>
+  document.documentElement.dataset.theme || (prefersDark.matches ? 'dark' : 'light');
+
+function refreshThemeUi() {
+  const dark = currentTheme() === 'dark';
+  const label = dark ? '밝은 화면으로' : '어두운 화면으로';
+  const button = $('themeToggle');
+  button.title = label;
+  button.setAttribute('aria-label', label);
+  $('themeIcon').setAttribute('href', dark ? '#i-sun' : '#i-moon');
+  document.querySelector('meta[name="theme-color"]').content = dark ? '#161618' : '#ffffff';
+}
+
+function toggleTheme() {
+  const next = currentTheme() === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem(THEME_KEY, next); } catch { /* 이번 실행에만 적용됩니다 */ }
+  refreshThemeUi();
+}
+
 function showLibrary() {
   viewerEl.hidden = true;
   libraryEl.hidden = false;
@@ -228,6 +271,10 @@ function initDropZone() {
   });
 }
 
+refreshThemeUi();
+$('themeToggle').addEventListener('click', toggleTheme);
+prefersDark.addEventListener('change', refreshThemeUi);
+
 initDialog();
 initViewer();
 initPiano();
@@ -242,6 +289,9 @@ fileInput.addEventListener('change', async () => {
   await importFiles(files);
 });
 searchEl.addEventListener('input', renderLibrary);
+document.addEventListener('click', (e) => {
+  if (!e.target.closest?.('.card-more, .card-menu')) closeCardMenus();
+});
 addEventListener('hashchange', route);
 
 // 저장 공간이 부족할 때 브라우저가 악보를 임의로 지우지 않도록 요청합니다.
