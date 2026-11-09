@@ -686,7 +686,6 @@ button.primary .icon { width: 18px; height: 18px; stroke-width: 2; }
   display: grid;
   grid-template-columns: 30% 1fr 30%;
   grid-template-rows: 1fr 2fr;
-  gap: 2px;
   pointer-events: none;
   transition: opacity 0.25s ease;
 }
@@ -695,7 +694,10 @@ button.primary .icon { width: 18px; height: 18px; stroke-width: 2; }
   display: flex;
   align-items: center;
   justify-content: center;
+  /* 칸 사이 간격을 gap 대신 margin으로 두어 격자 선이 실제 누르는 경계와 일치합니다. */
+  margin: 5px;
   padding: 8px;
+  border-radius: 20px;
   background: rgb(228 228 231 / 0.88);
   color: #3f3f46;
   font-size: 16px;
