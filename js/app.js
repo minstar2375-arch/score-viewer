@@ -4,6 +4,7 @@ import { toast, confirmDialog, promptDialog, initDialog } from './ui.js';
 import { initViewer, openViewer, closeViewer } from './viewer.js';
 import { initPiano, closePiano } from './piano.js';
 import { initRecorder, closeRecorder, setRecorderScore } from './recorder.js';
+import { initPractice, closePractice, setPracticeScore } from './practice.js';
 
 const $ = (id) => document.getElementById(id);
 const libraryEl = $('library');
@@ -283,6 +284,7 @@ async function route() {
   const token = ++routeToken;
   const match = location.hash.match(/^#\/score\/(.+)$/);
   closePiano();
+  closePractice();
   await closeRecorder();
   await closeViewer();
   if (token !== routeToken) return;
@@ -297,6 +299,7 @@ async function route() {
   try {
     const id = decodeURIComponent(match[1]);
     setRecorderScore(id);
+    setPracticeScore(id);
     await openViewer(id);
   } catch (err) {
     console.error(err);
@@ -334,6 +337,7 @@ initDialog();
 initViewer();
 initPiano();
 initRecorder();
+initPractice();
 initDropZone();
 refreshSortButtons();
 for (const btn of document.querySelectorAll('[data-sort]')) {

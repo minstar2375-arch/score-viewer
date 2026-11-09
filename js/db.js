@@ -3,9 +3,10 @@
 //   files:  PDF 원본
 //   notes:  쪽별 필기 (key = "악보ID:쪽번호")
 //   recordings: 악보별 연습 녹음
+//   tracks: 악보별 연습 음원 (파일 또는 YouTube 링크)
 
 const DB_NAME = 'score-viewer';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 let dbPromise;
 
 function openDb() {
@@ -22,6 +23,9 @@ function openDb() {
       }
       if (!has('recordings')) {
         db.createObjectStore('recordings', { keyPath: 'id' }).createIndex('scoreId', 'scoreId');
+      }
+      if (!has('tracks')) {
+        db.createObjectStore('tracks', { keyPath: 'id' }).createIndex('scoreId', 'scoreId');
       }
     };
     req.onsuccess = () => {
@@ -70,10 +74,10 @@ export async function getFile(id) {
 }
 
 export const deleteScore = (id) =>
-  run(['scores', 'files', 'notes', 'recordings'], 'readwrite', (tx) => {
+  run(['scores', 'files', 'notes', 'recordings', 'tracks'], 'readwrite', (tx) => {
     tx.objectStore('scores').delete(id);
     tx.objectStore('files').delete(id);
-    for (const name of ['notes', 'recordings']) {
+    for (const name of ['notes', 'recordings', 'tracks']) {
       const store = tx.objectStore(name);
       store.index('scoreId').getAllKeys(id).onsuccess = (e) => {
         for (const key of e.target.result) store.delete(key);
@@ -89,6 +93,15 @@ export const addRecording = (recording) =>
 
 export const deleteRecording = (id) =>
   run('recordings', 'readwrite', (tx) => tx.objectStore('recordings').delete(id));
+
+export const listTracks = (scoreId) =>
+  run('tracks', 'readonly', (tx) => tx.objectStore('tracks').index('scoreId').getAll(scoreId));
+
+export const putTrack = (track) =>
+  run('tracks', 'readwrite', (tx) => tx.objectStore('tracks').put(track));
+
+export const deleteTrack = (id) =>
+  run('tracks', 'readwrite', (tx) => tx.objectStore('tracks').delete(id));
 
 export async function getNotes(scoreId, page) {
   const row = await run('notes', 'readonly', (tx) =>

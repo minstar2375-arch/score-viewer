@@ -293,6 +293,7 @@ async function renderList() {
 }
 
 function setPanelOpen(open) {
+  if (open && !$('trackPanel').hidden) $('trackClose').click();
   els.panel.hidden = !open;
   els.toggle.classList.toggle('active', open);
   els.toggle.setAttribute('aria-pressed', open);

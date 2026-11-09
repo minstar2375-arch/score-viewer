@@ -40,6 +40,7 @@
       <symbol id="i-text" viewBox="0 0 24 24"><path d="M5 7V5h14v2M12 5v14M9 19h6"/></symbol>
       <symbol id="i-eraser" viewBox="0 0 24 24"><path d="M8.500 20L3.700 15.200a2 2 0 010-2.800l8.700-8.700a2 2 0 012.800 0l5.100 5.100a2 2 0 010 2.800L12 20zM8.500 20H21M9 8l7 7"/></symbol>
       <symbol id="i-piano" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M9 13v6M15 13v6M7.500 5v8h3V5M13.500 5v8h3V5"/></symbol>
+      <symbol id="i-headphones" viewBox="0 0 24 24"><path d="M4 15v-3a8 8 0 0116 0v3"/><rect x="3" y="14" width="4.500" height="6.500" rx="1.500"/><rect x="16.500" y="14" width="4.500" height="6.500" rx="1.500"/></symbol>
       <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.500 11.500a6.500 6.500 0 0013 0M12 18v3"/></symbol>
       <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.500v13l10-6.500z"/></symbol>
       <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 5.500v13M15 5.500v13"/></symbol>
@@ -99,6 +100,7 @@
           <span class="tool-divider" aria-hidden="true"></span>
           <button type="button" id="togglePiano" class="tb tool" aria-label="건반" title="건반" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-piano"/></svg></button>
           <button type="button" id="toggleRecorder" class="tb tool" aria-label="녹음" title="녹음" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-mic"/></svg></button>
+          <button type="button" id="toggleTracks" class="tb tool" aria-label="연습 음원" title="연습 음원" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-headphones"/></svg></button>
         </div>
 
         <div class="bar-right">
@@ -131,6 +133,17 @@
         <ul id="recList" class="rec-list"></ul>
         <p id="recEmpty" class="rec-empty">이 악보의 녹음이 여기에 쌓입니다.</p>
       </div>
+
+      <div id="trackPanel" class="rec-panel" role="region" aria-label="연습 음원" hidden>
+        <div class="rec-head">
+          <button type="button" id="trackAddFile" class="rec-main">음원 파일 추가</button>
+          <button type="button" id="trackAddLink" class="rec-main">YouTube Music 링크</button>
+          <button type="button" id="trackClose" class="tb rec-close" aria-label="연습 음원 창 닫기" title="닫기"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+        </div>
+        <ul id="trackList" class="rec-list"></ul>
+        <p id="trackEmpty" class="rec-empty">베이스 파트 MP3나 곡 링크를 이 악보에 연결해 보세요.</p>
+        <input id="trackFile" type="file" accept="audio/*,video/mp4,.mp3,.mp4,.m4a,.wav,.aac,.ogg" multiple hidden>
+      </div>
     </header>
 
     <button type="button" id="recPill" class="rec-pill" aria-label="녹음 정지" hidden><span class="rec-dot" aria-hidden="true"></span><span id="recPillTime">0:00</span><span>정지</span></button>
@@ -143,6 +156,31 @@
         <input id="textEntry" class="text-entry" type="text" enterkeyhint="done" autocomplete="off" aria-label="악보에 넣을 글자" hidden>
       </div>
     </div>
+
+    <aside id="ytBox" class="yt-box" aria-label="YouTube 플레이어" hidden>
+      <div id="ytHandle" class="yt-handle">
+        <span>끌어서 옮기기</span>
+        <a id="ytOpen" href="https://music.youtube.com/" target="_blank" rel="noopener">앱에서 열기</a>
+      </div>
+      <div id="ytFrame" class="yt-frame"></div>
+      <div id="ytError" class="yt-error" hidden>
+        <p id="ytErrorText"></p>
+        <a id="ytErrorOpen" href="https://music.youtube.com/" target="_blank" rel="noopener">YouTube Music에서 열기</a>
+      </div>
+    </aside>
+
+    <section id="practiceBar" class="practice-bar" aria-label="연습 음원 재생" hidden>
+      <button type="button" id="practicePlay" class="tb" aria-label="재생"><svg class="icon" aria-hidden="true"><use href="#i-play"/></svg></button>
+      <button type="button" id="practiceBack" class="tb practice-text" aria-label="5초 뒤로" title="5초 뒤로">−5초</button>
+      <div class="practice-main">
+        <div class="practice-info"><span id="practiceName" class="practice-name"></span><span id="practiceTime" class="practice-time"></span></div>
+        <input id="practiceSeek" class="practice-seek" type="range" min="0" max="0" step="0.05" value="0" aria-label="재생 위치">
+      </div>
+      <button type="button" id="practiceA" class="tb practice-loop" aria-label="반복 시작 지점" title="반복 시작 지점">A</button>
+      <button type="button" id="practiceB" class="tb practice-loop" aria-label="반복 끝 지점" title="반복 끝 지점">B</button>
+      <select id="practiceSpeed" class="practice-speed" aria-label="재생 속도"></select>
+      <button type="button" id="practiceClose" class="tb" aria-label="재생 막대 닫기" title="닫기"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+    </section>
 
     <section id="piano" class="piano" aria-label="피아노 건반" hidden>
       <div class="piano-bar">
