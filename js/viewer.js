@@ -544,6 +544,54 @@ function handleGestureEnd(gesture, e) {
   }
 }
 
+/* ---------- 누르는 영역 안내 ---------- */
+
+// 처음 쓰는 사람에게 화면 어디를 누르면 무엇이 되는지 한 번 보여 줍니다.
+const ZONE_HINT_KEY = 'score-viewer-zone-hint-seen';
+const ZONE_HINT_MS = 2000;
+const ZONE_HINT_FADE_MS = 250;
+const ZONE_HINT_ITEMS = [
+  ['first', '맨 앞으로'],
+  ['center', '도구 숨기기'],
+  ['last', '맨 뒤로'],
+  ['prev', '이전 쪽'],
+  ['next', '다음 쪽'],
+];
+let zoneHint = null; // { el, timer }
+
+function hideZoneHint() {
+  if (!zoneHint) return;
+  clearTimeout(zoneHint.timer);
+  zoneHint.el.remove();
+  zoneHint = null;
+}
+
+function showZoneHint() {
+  // 필기 모드이거나 한 쪽짜리 악보에서는 설명할 동작이 없어 다음 기회로 미룹니다.
+  if (S.tool !== 'view' || S.count < 2) return;
+  try {
+    if (localStorage.getItem(ZONE_HINT_KEY)) return;
+    localStorage.setItem(ZONE_HINT_KEY, '1');
+  } catch { /* 기억하지 못해도 안내는 보여 줍니다 */ }
+
+  hideZoneHint();
+  const el = document.createElement('div');
+  el.className = 'zone-hint';
+  el.setAttribute('aria-hidden', 'true');
+  for (const [name, text] of ZONE_HINT_ITEMS) {
+    const zone = document.createElement('div');
+    zone.className = `zone zone-${name}`;
+    zone.textContent = text;
+    el.append(zone);
+  }
+  els.stage.append(el);
+  const timer = setTimeout(() => {
+    el.classList.add('leaving');
+    zoneHint.timer = setTimeout(hideZoneHint, ZONE_HINT_FADE_MS);
+  }, ZONE_HINT_MS);
+  zoneHint = { el, timer };
+}
+
 // 화면 위쪽을 눌러 건너뛸 때 어디로 왔는지 알려 줍니다.
 function jumpTo(page, label) {
   if (page === S.page) return;
@@ -762,11 +810,13 @@ export async function openViewer(id) {
   await db.putScore({ ...score, lastOpenedAt: Date.now() });
   if (token !== openToken) return;
   await showPage(S.page);
+  if (token === openToken) showZoneHint();
 }
 
 export async function closeViewer() {
   openToken += 1;
   showToken += 1;
+  hideZoneHint();
   if (!S.doc) return;
   finishInteractions();
   allowScreenOff();
