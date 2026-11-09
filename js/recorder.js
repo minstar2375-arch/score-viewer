@@ -265,6 +265,7 @@ const MP3_RATE = 44100;
 const MP3_KBPS = 96;
 const converting = new Map(); // 녹음 ID -> 변환 중인 Promise
 const convertedResults = new Map(); // 녹음 ID -> 변환 결과
+const failedConversions = new Set(); // 이번 실행에서 변환에 실패한 녹음 ID
 
 const isMp3 = (recording) => recording.type === 'audio/mpeg';
 
@@ -295,6 +296,8 @@ function ensureMp3(recording) {
   const done = convertedResults.get(recording.id);
   if (done) Object.assign(recording, done);
   if (isMp3(recording)) return Promise.resolve(true);
+  // 실패한 변환을 누를 때마다 되풀이하면 공유 허용 시간이 계속 지나 버립니다. 앱을 다시 열면 재시도합니다.
+  if (failedConversions.has(recording.id)) return Promise.resolve(false);
   let job = converting.get(recording.id);
   if (!job) {
     job = encodeMp3(recording.blob)
@@ -306,6 +309,7 @@ function ensureMp3(recording) {
       })
       .catch((err) => {
         console.warn('MP3 변환 실패', err);
+        failedConversions.add(recording.id);
         return false;
       })
       .finally(() => converting.delete(recording.id));
@@ -411,7 +415,15 @@ function recordingFileName(recording) {
   const date = new Date(recording.createdAt);
   const pad = (n) => String(n).padStart(2, '0');
   const stamp = `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}`;
-  return `${els.title.textContent || '녹음'} ${stamp}.${extension}`;
+  // 파일 이름에 쓸 수 없는 글자가 있으면 공유나 저장이 거부될 수 있습니다.
+  const title = (els.title.textContent || '')
+    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/^[\s.]+/, '')
+    .trim()
+    .slice(0, 60)
+    .trim();
+  return `${title || '녹음'} ${stamp}.${extension}`;
 }
 
 async function saveToFile(recording) {
@@ -424,8 +436,19 @@ async function saveToFile(recording) {
 
 /* ---------- 다른 앱으로 공유 ---------- */
 
+// 공유할 수 없을 때도 녹음을 꺼낼 수 있도록 파일로 저장합니다.
+async function saveInsteadOfShare(recording, name, reason) {
+  try {
+    await saveBlob(recording.blob, name);
+    toast(`공유 창을 열지 못해 파일로 저장했습니다. 다운로드 폴더에서 보낼 수 있습니다. (${reason})`, { duration: 7000 });
+  } catch (err) {
+    console.error(err);
+    toast(`공유도 저장도 하지 못했습니다. (${reason})`, { duration: 7000 });
+  }
+}
+
 async function shareRecording(recording, button) {
-  const ready = isMp3(recording) || convertedResults.has(recording.id);
+  const ready = isMp3(recording) || convertedResults.has(recording.id) || failedConversions.has(recording.id);
   if (!ready) {
     button.disabled = true;
     toast('공유 준비 중…', { sticky: true });
@@ -434,25 +457,27 @@ async function shareRecording(recording, button) {
   button.disabled = false;
   if (!ready) hideToast();
 
+  // 변환을 기다리는 동안 버튼을 누른 효력이 끝나면 공유 창을 열 수 없습니다.
+  if (navigator.userActivation && !navigator.userActivation.isActive) {
+    toast('준비됐습니다. 공유 버튼을 한 번 더 눌러 주세요.', { duration: 5000 });
+    return;
+  }
+
+  hideToast(); // 앞서 띄운 "한 번 더 눌러 주세요"가 남지 않게 합니다.
   const name = recordingFileName(recording);
-  const file = new File([recording.blob], name, { type: recording.type });
-  const data = { files: [file], title: name };
+  // 'audio/webm;codecs=opus'처럼 뒤에 붙은 정보가 있으면 공유가 거부될 수 있어 형식만 남깁니다.
+  const type = recording.type.split(';')[0].trim();
+  const data = { files: [new File([recording.blob], name, { type })] };
   if (!navigator.share || !navigator.canShare?.(data)) {
-    await saveBlob(recording.blob, name);
-    toast('이 기기에서는 바로 공유할 수 없어 파일로 저장했습니다.', { duration: 5000 });
+    await saveInsteadOfShare(recording, name, '공유 미지원');
     return;
   }
   try {
     await navigator.share(data);
   } catch (err) {
     if (err?.name === 'AbortError') return; // 사용자가 공유 창을 닫은 경우입니다.
-    if (err?.name === 'NotAllowedError') {
-      // 변환을 기다리는 동안 브라우저의 공유 허용 시간이 지나면 여기로 옵니다.
-      toast('준비됐습니다. 공유 버튼을 한 번 더 눌러 주세요.', { duration: 5000 });
-      return;
-    }
     console.error(err);
-    toast('공유하지 못했습니다.');
+    await saveInsteadOfShare(recording, name, err?.name || '알 수 없는 오류');
   }
 }
 
