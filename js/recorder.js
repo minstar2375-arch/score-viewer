@@ -418,6 +418,7 @@ function recordingFileName(recording) {
   // 파일 이름에 쓸 수 없는 글자가 있으면 공유나 저장이 거부될 수 있습니다.
   const title = (els.title.textContent || '')
     .replace(/[\\/:*?"<>|\u0000-\u001f]/g, ' ')
+    .replace(/\.{2,}/g, '.') // 안드로이드 Chrome은 이름에 ".."이 있으면 공유를 거부합니다.
     .replace(/\s+/g, ' ')
     .replace(/^[\s.]+/, '')
     .trim()
@@ -466,10 +467,13 @@ async function shareRecording(recording, button) {
   hideToast(); // 앞서 띄운 "한 번 더 눌러 주세요"가 남지 않게 합니다.
   const name = recordingFileName(recording);
   // 'audio/webm;codecs=opus'처럼 뒤에 붙은 정보가 있으면 공유가 거부될 수 있어 형식만 남깁니다.
-  const type = recording.type.split(';')[0].trim();
+  const baseType = recording.type.split(';')[0].trim();
+  // 안드로이드 Chrome의 허용 목록에는 m4a가 audio/x-m4a로만 올라 있습니다.
+  const type = baseType === 'audio/mp4' ? 'audio/x-m4a' : baseType;
   const data = { files: [new File([recording.blob], name, { type })] };
-  if (!navigator.share || !navigator.canShare?.(data)) {
-    await saveInsteadOfShare(recording, name, '공유 미지원');
+  // canShare가 없는 브라우저도 공유는 될 수 있으니 시도해 봅니다.
+  if (!navigator.share || (navigator.canShare && !navigator.canShare(data))) {
+    await saveInsteadOfShare(recording, name, `공유 미지원, ${type}`);
     return;
   }
   try {
@@ -477,7 +481,7 @@ async function shareRecording(recording, button) {
   } catch (err) {
     if (err?.name === 'AbortError') return; // 사용자가 공유 창을 닫은 경우입니다.
     console.error(err);
-    await saveInsteadOfShare(recording, name, err?.name || '알 수 없는 오류');
+    await saveInsteadOfShare(recording, name, `${err?.name || '알 수 없는 오류'}, ${type}`);
   }
 }
 
