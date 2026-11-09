@@ -1,6 +1,7 @@
 // 마이크로 연습을 녹음해 악보별로 저장하고 다시 듣습니다.
 import * as db from './db.js';
 import { toast, confirmDialog } from './ui.js';
+import { saveBlob } from './platform.js';
 
 const $ = (id) => document.getElementById(id);
 const MIME_TYPES = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm'];
@@ -205,14 +206,10 @@ function saveToFile(recording) {
   const date = new Date(recording.createdAt);
   const pad = (n) => String(n).padStart(2, '0');
   const stamp = `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}`;
-  const url = URL.createObjectURL(recording.blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `${els.title.textContent || '녹음'} ${stamp}.${extension}`;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 60000);
+  saveBlob(recording.blob, `${els.title.textContent || '녹음'} ${stamp}.${extension}`).catch((err) => {
+    console.error(err);
+    toast('파일을 저장하지 못했습니다.');
+  });
 }
 
 async function removeRecording(recording) {

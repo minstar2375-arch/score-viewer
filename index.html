@@ -58,10 +58,18 @@
       </div>
       <input id="search" type="search" placeholder="검색" aria-label="악보 찾기" hidden>
       <button type="button" id="themeToggle" class="theme-toggle"><svg class="icon" aria-hidden="true"><use id="themeIcon" href="#i-moon"/></svg></button>
+      <div class="more-wrap">
+        <button type="button" id="moreButton" class="theme-toggle" aria-label="더 보기" aria-haspopup="menu" title="더 보기"><svg class="icon more-icon" aria-hidden="true"><use href="#i-more"/></svg></button>
+        <div id="moreMenu" class="card-menu more-menu" role="menu" hidden>
+          <button type="button" id="backupSave" role="menuitem">백업 파일 저장</button>
+          <button type="button" id="backupRestore" role="menuitem">백업에서 복원</button>
+        </div>
+      </div>
       <button type="button" class="primary" data-add>
         <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>
         추가
       </button>
+      <input id="backupFile" type="file" hidden>
     </header>
     <main class="lib-main">
       <div id="sortBar" class="sort-bar" role="group" aria-label="정렬" hidden>

@@ -153,6 +153,10 @@ button.primary .icon { width: 18px; height: 18px; stroke-width: 2; }
   touch-action: manipulation;
 }
 
+.more-wrap { position: relative; flex: none; }
+.more-icon { stroke-width: 2.6; }
+.more-menu { top: 46px; right: 0; z-index: 8; min-width: 160px; }
+
 .lib-main {
   max-width: 1360px;
   margin: 0 auto;

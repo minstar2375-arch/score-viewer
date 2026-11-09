@@ -85,6 +85,19 @@ export const deleteScore = (id) =>
     }
   });
 
+export const listNotes = (scoreId) =>
+  run('notes', 'readonly', (tx) => tx.objectStore('notes').index('scoreId').getAll(scoreId));
+
+// 백업에서 악보 하나를 관련 기록과 함께 한 번에 저장합니다. 중간에 실패하면 아무것도 남지 않습니다.
+export const restoreScore = ({ score, data, notes, recordings, tracks }) =>
+  run(['scores', 'files', 'notes', 'recordings', 'tracks'], 'readwrite', (tx) => {
+    tx.objectStore('scores').put(score);
+    tx.objectStore('files').put({ id: score.id, data });
+    for (const note of notes) tx.objectStore('notes').put(note);
+    for (const recording of recordings) tx.objectStore('recordings').put(recording);
+    for (const track of tracks) tx.objectStore('tracks').put(track);
+  });
+
 export const listRecordings = (scoreId) =>
   run('recordings', 'readonly', (tx) => tx.objectStore('recordings').index('scoreId').getAll(scoreId));
 

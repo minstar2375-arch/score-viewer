@@ -2,6 +2,7 @@
 // 음원은 기기에 저장한 파일(MP3 등)이거나 YouTube, YouTube Music 곡 링크입니다.
 import * as db from './db.js';
 import { toast, confirmDialog, promptDialog } from './ui.js';
+import { youTubeEnabled } from './platform.js';
 
 const $ = (id) => document.getElementById(id);
 const FILE_SPEEDS = [0.5, 0.6, 0.7, 0.75, 0.8, 0.9, 1, 1.1, 1.25];
@@ -515,8 +516,10 @@ function trackRow(track) {
 
 async function renderList() {
   const id = scoreId;
-  const tracks = id ? await db.listTracks(id) : [];
+  const all = id ? await db.listTracks(id) : [];
   if (id !== scoreId) return;
+  // 스토어 앱에서는 백업으로 옮겨 온 YouTube 링크를 보여 주지 않습니다.
+  const tracks = all.filter((track) => youTubeEnabled || track.kind !== 'youtube');
   tracks.sort((a, b) => a.createdAt - b.createdAt);
   els.list.replaceChildren(...tracks.map(trackRow));
   els.empty.hidden = tracks.length > 0;
@@ -714,6 +717,10 @@ export function initPractice() {
     ytErrorOpen: $('ytErrorOpen'),
   };
 
+  if (!youTubeEnabled) {
+    els.addLink.hidden = true;
+    els.empty.textContent = '베이스 파트 MP3 같은 음원을 이 악보에 연결해 보세요.';
+  }
   els.toggle.addEventListener('click', () => setPanelOpen(els.panel.hidden));
   els.close.addEventListener('click', () => setPanelOpen(false));
   els.addFile.addEventListener('click', () => els.file.click());

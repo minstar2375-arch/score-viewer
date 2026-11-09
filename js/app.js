@@ -5,6 +5,8 @@ import { initViewer, openViewer, closeViewer } from './viewer.js';
 import { initPiano, closePiano } from './piano.js';
 import { initRecorder, closeRecorder, setRecorderScore } from './recorder.js';
 import { initPractice, closePractice, setPracticeScore } from './practice.js';
+import { exportBackup, restoreBackup, BackupFormatError } from './backup.js';
+import { isStoreApp } from './platform.js';
 
 const $ = (id) => document.getElementById(id);
 const libraryEl = $('library');
@@ -124,7 +126,7 @@ function scoreCard(score) {
 }
 
 function closeCardMenus() {
-  for (const menu of document.querySelectorAll('.card-menu')) menu.hidden = true;
+  for (const menu of document.querySelectorAll('.card .card-menu')) menu.hidden = true;
 }
 
 async function renderLibrary() {
@@ -273,6 +275,73 @@ function toggleTheme() {
   refreshThemeUi();
 }
 
+/* ---------- 백업 ---------- */
+
+let backupBusy = false;
+
+async function runBackup() {
+  if (backupBusy) return;
+  backupBusy = true;
+  try {
+    const result = await exportBackup((done, total) => {
+      toast(`백업 준비 중… (${done}/${total})`, { sticky: true });
+    });
+    if (!result.count) toast('백업할 악보가 없습니다.');
+    else if (result.saved) {
+      toast(`악보 ${result.count}개를 백업했습니다 (${(result.size / 1048576).toFixed(1)}MB). 파일을 안전한 곳에 보관하세요.`, { duration: 6000 });
+    } else toast('백업을 취소했습니다.');
+  } catch (err) {
+    console.error(err);
+    toast('백업 파일을 만들지 못했습니다.');
+  } finally {
+    backupBusy = false;
+  }
+}
+
+async function runRestore(file) {
+  if (backupBusy) return;
+  backupBusy = true;
+  try {
+    const { added, skipped } = await restoreBackup(file, (done, total) => {
+      toast(`복원 중… (${done}/${total})`, { sticky: true });
+    });
+    await renderLibrary();
+    const parts = [`악보 ${added}개를 복원했습니다.`];
+    if (skipped.length) parts.push(`이미 있는 악보 ${skipped.length}개는 건너뛰었습니다.`);
+    toast(parts.join(' '), { duration: 6000 });
+  } catch (err) {
+    console.error(err);
+    await renderLibrary();
+    if (err instanceof BackupFormatError) toast(err.message, { duration: 6000 });
+    else if (err?.name === 'QuotaExceededError') toast('저장 공간이 부족해 복원을 끝내지 못했습니다.', { duration: 6000 });
+    else toast('복원하지 못했습니다.', { duration: 6000 });
+  } finally {
+    backupBusy = false;
+  }
+}
+
+function initBackupMenu() {
+  const toggle = $('moreButton');
+  const menu = $('moreMenu');
+  toggle.addEventListener('click', () => { menu.hidden = !menu.hidden; });
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest?.('#moreButton, #moreMenu')) menu.hidden = true;
+  });
+  $('backupSave').addEventListener('click', () => {
+    menu.hidden = true;
+    runBackup();
+  });
+  $('backupRestore').addEventListener('click', () => {
+    menu.hidden = true;
+    $('backupFile').click();
+  });
+  $('backupFile').addEventListener('change', () => {
+    const [file] = $('backupFile').files;
+    $('backupFile').value = '';
+    if (file) runRestore(file);
+  });
+}
+
 function showLibrary() {
   viewerEl.hidden = true;
   libraryEl.hidden = false;
@@ -338,6 +407,7 @@ initViewer();
 initPiano();
 initRecorder();
 initPractice();
+initBackupMenu();
 initDropZone();
 refreshSortButtons();
 for (const btn of document.querySelectorAll('[data-sort]')) {
@@ -362,7 +432,8 @@ addEventListener('hashchange', route);
 navigator.storage?.persist?.().catch(() => {});
 
 // 서비스 워커는 HTTPS 또는 localhost에서만 동작합니다.
-if ('serviceWorker' in navigator) {
+// 스토어 앱은 파일이 앱 안에 들어 있어 필요하지 않습니다.
+if ('serviceWorker' in navigator && !isStoreApp) {
   navigator.serviceWorker.register('sw.js').catch((err) => console.warn('오프라인 설정 실패', err));
 }
 
