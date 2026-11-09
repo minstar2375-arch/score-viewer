@@ -356,6 +356,77 @@ button.primary.danger { background: var(--danger); }
 #pageSlider { flex: 1; min-width: 0; height: 44px; accent-color: var(--highlight); margin: 0; }
 .page-label { min-width: 64px; text-align: center; font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
+/* ---------- 피아노 건반 ---------- */
+
+.piano-toggle { margin-left: 6px; }
+
+.piano {
+  flex: none;
+  background: var(--chrome);
+  border-top: 1px solid var(--chrome-2);
+  padding: 0 max(4px, env(safe-area-inset-right)) 6px max(4px, env(safe-area-inset-left));
+}
+.piano-bar { display: flex; align-items: center; gap: 2px; }
+.piano-range {
+  min-width: 84px;
+  text-align: center;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.piano-labels { margin-left: 8px; padding: 0 10px; font-size: 13px; white-space: nowrap; }
+.piano-close { margin-left: auto; }
+.piano-close .icon { transform: rotate(45deg); }
+
+.piano-keys {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--whites, 14), 1fr);
+  height: 140px;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.key.white {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 8px;
+  background: #fbf8f1;
+  border: 1px solid #8e867a;
+  border-top: 0;
+  border-radius: 0 0 5px 5px;
+  color: #5b5449;
+  font-size: 13px;
+  font-weight: 600;
+}
+.key.white span { pointer-events: none; }
+.key.white.middle-c { background: #f6e6c6; }
+.key.white.down { background: var(--highlight); color: #231a0a; }
+.key.black {
+  position: absolute;
+  top: 0;
+  z-index: 1;
+  width: calc(100% / var(--whites, 14) * 0.62);
+  height: 60%;
+  transform: translateX(-50%);
+  background: #1d1a17;
+  border-radius: 0 0 4px 4px;
+  box-shadow: inset 0 -5px 0 #3a352f;
+}
+.key.black.down { background: #a86c16; box-shadow: inset 0 -2px 0 #6e460c; }
+
+/* 가로 화면에서는 악보가 너무 작아지지 않도록 건반을 낮춥니다. */
+@media (max-height: 900px) {
+  .piano-keys { height: 112px; }
+}
+@media (max-height: 560px) {
+  .piano-keys { height: 92px; }
+  .key.white { padding-bottom: 3px; }
+}
+
 /* 악보만 크게 보기: 화면 가운데를 누르면 전환됩니다. */
 .immersive .topbar, .immersive .bottombar { display: none; }
 

@@ -1,7 +1,7 @@
 // 앱 화면을 저장해 인터넷 없이도 열리게 합니다. 파일을 고치면 VERSION을 올리세요.
 importScripts('vendor/pdfjs/assets.js');
 
-const VERSION = 'v2';
+const VERSION = 'v3';
 const CACHE = `score-viewer-${VERSION}`;
 const SHELL = [
   './',
@@ -11,6 +11,7 @@ const SHELL = [
   'js/app.js',
   'js/db.js',
   'js/pdf.js',
+  'js/piano.js',
   'js/ui.js',
   'js/viewer.js',
   'icons/icon-192.png',

@@ -2,6 +2,7 @@ import * as db from './db.js';
 import { loadPdf, makeThumbnail } from './pdf.js';
 import { toast, confirmDialog, promptDialog, initDialog } from './ui.js';
 import { initViewer, openViewer, closeViewer } from './viewer.js';
+import { initPiano, closePiano } from './piano.js';
 
 const $ = (id) => document.getElementById(id);
 const libraryEl = $('library');
@@ -186,6 +187,7 @@ let routeToken = 0;
 async function route() {
   const token = ++routeToken;
   const match = location.hash.match(/^#\/score\/(.+)$/);
+  closePiano();
   await closeViewer();
   if (token !== routeToken) return;
 
@@ -228,6 +230,7 @@ function initDropZone() {
 
 initDialog();
 initViewer();
+initPiano();
 initDropZone();
 
 for (const btn of document.querySelectorAll('[data-add]')) {

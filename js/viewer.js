@@ -122,6 +122,11 @@ async function showPage(n, { keepScroll = false } = {}) {
     evict(new Set(metrics.map((m) => m.key)));
 
     const m = metrics[0];
+    // 같은 쪽의 크기만 바뀔 때는 틀을 먼저 맞춰, 새로 그리는 동안 악보가 잘려 보이지 않게 합니다.
+    if (samePage) {
+      els.sheet.style.width = `${m.cssW}px`;
+      els.sheet.style.height = `${m.cssH}px`;
+    }
     const [canvas, items] = await Promise.all([
       getRendered(m),
       samePage ? S.items : db.getNotes(S.score.id, n),
