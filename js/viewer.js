@@ -510,6 +510,10 @@ function onPointerUp(e) {
   finishInteractions();
 }
 
+// 위쪽 모서리 영역의 높이입니다. 한 쪽 넘기려다 잘못 눌리지 않도록 작게 잡습니다.
+const CORNER_RATIO = 0.15;
+const CORNER_MIN_PX = 72;
+
 function handleGestureEnd(gesture, e) {
   // 필기 모드에서는 손바닥이 닿아 쪽이 넘어가는 일이 없도록 넘기지 않습니다.
   if (S.tool !== 'view') return;
@@ -528,9 +532,25 @@ function handleGestureEnd(gesture, e) {
 
   const rect = els.stage.getBoundingClientRect();
   const ratio = (e.clientX - rect.left) / rect.width;
-  if (ratio < 0.3) showPage(S.page - 1);
-  else if (ratio > 0.7) showPage(S.page + 1);
-  else setChromeHidden(!S.chromeHidden);
+  // 위쪽 모서리는 맨 앞과 맨 뒤로, 그 아래는 한 쪽씩 넘깁니다.
+  const cornerHeight = Math.max(CORNER_MIN_PX, rect.height * CORNER_RATIO);
+  const inTop = e.clientY - rect.top < cornerHeight;
+  if (ratio < 0.3) {
+    if (inTop) jumpTo(1, '맨 앞');
+    else showPage(S.page - 1);
+  } else if (ratio > 0.7) {
+    if (inTop) jumpTo(S.count, '맨 뒤');
+    else showPage(S.page + 1);
+  } else {
+    setChromeHidden(!S.chromeHidden);
+  }
+}
+
+// 화면 위쪽 모서리를 눌러 건너뛸 때 어디로 왔는지 알려 줍니다.
+function jumpTo(page, label) {
+  if (page === S.page) return;
+  showPage(page);
+  toast(`${label} ${page}쪽`, { duration: 1200 });
 }
 
 // 그리던 획이나 지우개 동작을 마무리해 저장합니다.
