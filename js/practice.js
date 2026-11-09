@@ -149,7 +149,6 @@ function fileEngine(track) {
     pause: () => audio.pause(),
     seek: (t) => { audio.currentTime = Math.max(start, t); },
     setRate: (rate) => { audio.playbackRate = rate; },
-    setVolume: (volume) => { audio.volume = volume; },
     time: () => audio.currentTime,
     duration: () => (Number.isFinite(audio.duration) ? audio.duration : track.duration || 0),
     playing: () => !audio.paused && !audio.ended,
@@ -213,7 +212,6 @@ function youTubeEngine(track) {
   let ready = false;
   let wanted = null; // 준비되기 전에 누른 재생
   let rate = 1;
-  let volume = 1;
   let startAt = null;
   const mount = showYouTubeBox(track.videoId);
 
@@ -234,10 +232,6 @@ function youTubeEngine(track) {
     setRate: (value) => {
       rate = value;
       if (ready) player.setPlaybackRate(value);
-    },
-    setVolume: (value) => {
-      volume = value;
-      if (ready) player.setVolume(Math.round(value * 100));
     },
     time: () => (ready ? player.getCurrentTime() || 0 : 0),
     duration: () => (ready ? player.getDuration() || 0 : 0),
@@ -273,7 +267,6 @@ function youTubeEngine(track) {
           if (destroyed) return;
           ready = true;
           player.setPlaybackRate(rate);
-          player.setVolume(Math.round(volume * 100));
           if (startAt !== null) player.seekTo(startAt, true);
           if (wanted) player.playVideo();
           const title = player.getVideoData?.().title;
@@ -455,8 +448,6 @@ function selectTrack(track, { autoplay = true } = {}) {
   els.name.textContent = track.name;
   els.play.dataset.state = '';
   engine.setRate(buildSpeeds(engine.speeds, track.rate ?? 1));
-  els.volume.value = track.volume ?? 1;
-  engine.setVolume(Number(els.volume.value));
   ticker = setInterval(tick, TICK_MS);
   tick();
   if (autoplay) startPlaying();
@@ -708,7 +699,6 @@ export function initPractice() {
     play: $('practicePlay'),
     back: $('practiceBack'),
     forward: $('practiceForward'),
-    volume: $('practiceVolume'),
     seek: $('practiceSeek'),
     time: $('practiceTime'),
     a: $('practiceA'),
@@ -738,12 +728,6 @@ export function initPractice() {
   els.back.addEventListener('click', () => engine?.seek(Math.max(0, engine.time() - 5)));
   els.forward.addEventListener('click', () => {
     if (engine) engine.seek(Math.min(engine.duration() || Infinity, engine.time() + 5));
-  });
-  els.volume.addEventListener('input', () => {
-    if (!engine || !current) return;
-    current.volume = Number(els.volume.value);
-    engine.setVolume(current.volume);
-    scheduleSave();
   });
   els.a.addEventListener('click', () => setLoopPoint('a'));
   els.b.addEventListener('click', () => setLoopPoint('b'));

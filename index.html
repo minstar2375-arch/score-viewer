@@ -29,7 +29,6 @@
       <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.500A8.500 8.500 0 019.500 4a8.500 8.500 0 1010.500 10.500z"/></symbol>
       <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.600 5.600L7 7M17 17l1.400 1.400M5.600 18.400L7 17M17 7l1.400-1.400"/></symbol>
       <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
-      <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
       <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
       <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
       <symbol id="i-next" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
@@ -106,11 +105,6 @@
         <div class="bar-right">
           <button type="button" id="undo" class="tb" aria-label="되돌리기" title="되돌리기"><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg></button>
           <button type="button" id="redo" class="tb" aria-label="다시 실행" title="다시 실행"><svg class="icon" aria-hidden="true"><use href="#i-redo"/></svg></button>
-          <span class="zoom" role="group" aria-label="확대">
-            <button type="button" id="zoomOut" class="tb" aria-label="축소" title="축소"><svg class="icon" aria-hidden="true"><use href="#i-minus"/></svg></button>
-            <button type="button" id="zoomLabel" class="tb zoom-label" title="화면에 맞추기">100%</button>
-            <button type="button" id="zoomIn" class="tb" aria-label="확대" title="확대"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></button>
-          </span>
         </div>
       </div>
 
@@ -184,7 +178,6 @@
           <button type="button" id="practiceB" class="tb practice-loop" aria-label="반복 끝 지점" title="반복 끝 지점">B</button>
         </div>
         <label class="practice-group"><span class="practice-label">속도</span><select id="practiceSpeed" class="practice-speed"></select></label>
-        <label class="practice-group practice-volume"><span class="practice-label">음량</span><input id="practiceVolume" type="range" min="0" max="1" step="0.05" value="1"></label>
         <button type="button" id="practiceClose" class="tb practice-close" aria-label="재생 끝내기" title="재생 끝내기"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
       </div>
     </section>

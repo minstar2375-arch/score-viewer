@@ -409,8 +409,6 @@ button.primary .icon { width: 18px; height: 18px; stroke-width: 2; }
 .practice-text { min-width: 48px; background: var(--fill); border-radius: 999px; font-size: 13px; font-weight: 600; white-space: nowrap; }
 .practice-group { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; }
 .practice-label { font-size: 12px; font-weight: 600; color: var(--muted); white-space: nowrap; }
-.practice-volume { flex: 1 1 110px; min-width: 110px; }
-.practice-volume input { flex: 1; min-width: 60px; height: 40px; margin: 0; accent-color: var(--ink); }
 .practice-close { margin-left: auto; }
 .practice-main { min-width: 0; }
 .practice-info { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
@@ -581,8 +579,6 @@ button.primary .icon { width: 18px; height: 18px; stroke-width: 2; }
 .tool.active, .tool.active:hover { background: var(--ink) !important; color: var(--ink-inverse); }
 .tool-divider { width: 1px; height: 20px; margin: 0 3px; background: var(--line); }
 
-.zoom { display: inline-flex; align-items: center; margin-left: 6px; }
-.zoom-label { min-width: 48px; font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; }
 
 /* 악보 위에 떠 있어서, 도구를 바꿔도 악보 크기가 변하지 않습니다. */
 .options {
@@ -652,8 +648,7 @@ button.primary .icon { width: 18px; height: 18px; stroke-width: 2; }
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
 }
-.stage.zoomed { overflow: auto; touch-action: pan-x pan-y pinch-zoom; }
-.stage.drawing, .stage.drawing.zoomed { touch-action: none; }
+.stage.drawing { touch-action: none; }
 .stage.tool-text .sheet { cursor: text; }
 .stage.drawing:not(.tool-text) .sheet { cursor: crosshair; }
 
@@ -847,9 +842,7 @@ button.primary .icon { width: 18px; height: 18px; stroke-width: 2; }
 
 @media (max-width: 760px) {
   .bar-row { flex-wrap: wrap; padding: 4px; }
-  .zoom-label { display: none; }
   .rec-pill { top: calc(env(safe-area-inset-top) + 160px); }
-  .zoom { margin-left: 0; }
   .tools { order: 3; width: 100%; justify-content: space-between; }
   .tool { flex: 1; }
   .lib-header { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }

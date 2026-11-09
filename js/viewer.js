@@ -6,7 +6,7 @@ const $ = (id) => document.getElementById(id);
 
 const COLORS = ['#d32f2f', '#1565c0', '#2e7d32', '#111111', '#ffd600'];
 const DEFAULT_COLOR = { pen: '#d32f2f', hl: '#ffd600', text: '#1565c0' };
-// 페이지 너비에 대한 비율이라, 확대하거나 기기가 달라져도 같은 모양으로 보입니다.
+// 페이지 너비에 대한 비율이라, 기기 크기가 달라져도 같은 모양으로 보입니다.
 const SIZES = {
   pen: [0.002, 0.004, 0.007],
   hl: [0.012, 0.02, 0.03],
@@ -14,8 +14,6 @@ const SIZES = {
 };
 const FONT = '-apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif';
 const MAX_CANVAS_PIXELS = 16_000_000; // iOS Safari 캔버스 한도(약 16.7MP) 이내
-const ZOOM_MAX = 3;
-const ZOOM_STEP = 1.25;
 const ERASER_RADIUS = 12;
 const PEN_SEEN_KEY = 'score-viewer:pen-seen';
 
@@ -24,7 +22,6 @@ const S = {
   doc: null,
   page: 1,
   count: 0,
-  zoom: 1,
   tool: 'view',
   color: { ...DEFAULT_COLOR },
   sizeIndex: 1,
@@ -61,7 +58,7 @@ async function metric(n) {
     sizes.set(n, size);
   }
   const fit = Math.min(els.stage.clientWidth / size.w, els.stage.clientHeight / size.h);
-  const cssScale = Math.max(fit, 0.05) * S.zoom;
+  const cssScale = Math.max(fit, 0.05);
   const cssW = Math.floor(size.w * cssScale);
   const cssH = Math.floor(size.h * cssScale);
   const dpr = window.devicePixelRatio || 1;
@@ -103,7 +100,7 @@ function evict(keep) {
   }
 }
 
-async function showPage(n, { keepScroll = false } = {}) {
+async function showPage(n) {
   if (!S.doc) return;
   finishInteractions();
   n = Math.min(Math.max(n, 1), S.count);
@@ -149,7 +146,6 @@ async function showPage(n, { keepScroll = false } = {}) {
     rebuildCommitted();
     paint();
     updateHistoryButtons();
-    if (!keepScroll) els.stage.scrollTo(0, 0);
 
     for (const other of metrics.slice(1)) getRendered(other).catch(() => {});
   } catch (err) {
@@ -454,11 +450,6 @@ function onPointerDown(e) {
     return;
   }
 
-  // 확대했을 때 나타나는 스크롤바를 눌러도 쪽이 넘어가지 않게 합니다.
-  const stageRect = els.stage.getBoundingClientRect();
-  if (e.clientX >= stageRect.left + els.stage.clientWidth
-      || e.clientY >= stageRect.top + els.stage.clientHeight) return;
-
   // 화면 밖에서 손을 떼도 pointerup을 받도록 붙잡아 둡니다.
   els.stage.setPointerCapture(e.pointerId);
   action = {
@@ -477,10 +468,6 @@ function onPointerMove(e) {
   if (!action || e.pointerId !== action.id) return;
 
   if (action.kind === 'gesture') {
-    // 필기 모드에서는 브라우저 스크롤이 꺼져 있어 손가락 이동을 직접 반영합니다.
-    if (S.tool !== 'view' && action.pointerType === 'touch') {
-      els.stage.scrollBy(action.lastX - e.clientX, action.lastY - e.clientY);
-    }
     action.lastX = e.clientX;
     action.lastY = e.clientY;
     return;
@@ -532,7 +519,7 @@ function handleGestureEnd(gesture, e) {
   const moved = Math.hypot(dx, dy);
   const elapsed = performance.now() - gesture.startTime;
 
-  if (gesture.pointerType === 'touch' && S.zoom === 1
+  if (gesture.pointerType === 'touch'
       && Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
     showPage(S.page + (dx < 0 ? 1 : -1));
     return;
@@ -572,10 +559,6 @@ function updateChrome() {
   els.slider.value = S.page;
   els.prev.disabled = S.page <= 1;
   els.next.disabled = S.page >= S.count;
-  els.zoomLabel.textContent = `${Math.round(S.zoom * 100)}%`;
-  els.zoomOut.disabled = S.zoom <= 1;
-  els.zoomIn.disabled = S.zoom >= ZOOM_MAX;
-  els.stage.classList.toggle('zoomed', S.zoom > 1);
   updateHistoryButtons();
 }
 
@@ -620,23 +603,6 @@ function refreshOptions() {
     btn.classList.toggle('active', on);
     btn.setAttribute('aria-pressed', on);
   }
-}
-
-function setZoom(zoom) {
-  finishInteractions();
-  const next = Math.min(ZOOM_MAX, Math.max(1, zoom));
-  if (next === S.zoom) return;
-  const { stage } = els;
-  const cx = (stage.scrollLeft + stage.clientWidth / 2) / Math.max(stage.scrollWidth, 1);
-  const cy = (stage.scrollTop + stage.clientHeight / 2) / Math.max(stage.scrollHeight, 1);
-  S.zoom = next;
-  updateChrome();
-  showPage(S.page, { keepScroll: true }).then(() => {
-    stage.scrollTo(
-      cx * stage.scrollWidth - stage.clientWidth / 2,
-      cy * stage.scrollHeight - stage.clientHeight / 2,
-    );
-  });
 }
 
 function buildOptions() {
@@ -701,8 +667,6 @@ function onKeyDown(e) {
     else undo();
     return;
   }
-  if (mod && (e.key === '=' || e.key === '+')) { e.preventDefault(); setZoom(S.zoom * ZOOM_STEP); return; }
-  if (mod && e.key === '-') { e.preventDefault(); setZoom(S.zoom / ZOOM_STEP); return; }
   if (mod || e.altKey) return;
 
   const turns = {
@@ -770,7 +734,6 @@ export async function openViewer(id) {
     doc,
     count: doc.numPages,
     page: Math.min(score.lastPage || 1, doc.numPages),
-    zoom: 1,
     items: [],
     ready: false,
     history: new Map(),
@@ -820,9 +783,6 @@ export function initViewer() {
     undo: $('undo'),
     redo: $('redo'),
     clear: $('clearPage'),
-    zoomIn: $('zoomIn'),
-    zoomOut: $('zoomOut'),
-    zoomLabel: $('zoomLabel'),
     prev: $('prevPage'),
     next: $('nextPage'),
     slider: $('pageSlider'),
@@ -838,9 +798,6 @@ export function initViewer() {
   els.undo.addEventListener('click', undo);
   els.redo.addEventListener('click', redo);
   els.clear.addEventListener('click', clearPage);
-  els.zoomIn.addEventListener('click', () => setZoom(S.zoom * ZOOM_STEP));
-  els.zoomOut.addEventListener('click', () => setZoom(S.zoom / ZOOM_STEP));
-  els.zoomLabel.addEventListener('click', () => setZoom(1));
   els.prev.addEventListener('click', () => showPage(S.page - 1));
   els.next.addEventListener('click', () => showPage(S.page + 1));
   els.slider.addEventListener('input', () => showPage(Number(els.slider.value)));
@@ -869,7 +826,7 @@ export function initViewer() {
   new ResizeObserver(() => {
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
-      if (S.doc && !action) showPage(S.page, { keepScroll: true });
+      if (S.doc && !action) showPage(S.page);
     }, 120);
   }).observe(els.stage);
 }
