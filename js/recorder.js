@@ -437,10 +437,30 @@ async function saveToFile(recording) {
 
 /* ---------- 다른 앱으로 공유 ---------- */
 
+// 삼성 인터넷은 Chrome과 달리 음원 파일 공유를 거부하는 경우가 있어 Chrome으로 안내합니다.
+const isSamsungBrowser = () => /SamsungBrowser/i.test(navigator.userAgent);
+
+function openInChrome() {
+  const link = document.createElement('a');
+  link.href = `intent://${location.host}${location.pathname}#Intent;scheme=https;package=com.android.chrome;end`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+}
+
 // 공유할 수 없을 때도 녹음을 꺼낼 수 있도록 파일로 저장합니다.
 async function saveInsteadOfShare(recording, name, reason) {
   try {
     await saveBlob(recording.blob, name);
+    if (isSamsungBrowser()) {
+      const open = await confirmDialog({
+        title: '삼성 인터넷이 공유를 거부했습니다',
+        message: `녹음은 다운로드 폴더에 저장했으니, 내 파일 앱에서 그 파일을 공유하면 카카오톡으로 보낼 수 있습니다. 앱에서 바로 공유하려면 Chrome에서 악보함을 여세요. 악보와 녹음은 자동으로 옮겨지지 않으니 보관함의 ⋯ 메뉴에서 백업한 뒤 Chrome에서 복원하세요. (${reason})`,
+        ok: 'Chrome에서 열기',
+      });
+      if (open) openInChrome();
+      return;
+    }
     toast(`공유 창을 열지 못해 파일로 저장했습니다. 다운로드 폴더에서 보낼 수 있습니다. (${reason})`, { duration: 7000 });
   } catch (err) {
     console.error(err);
