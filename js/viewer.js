@@ -547,7 +547,8 @@ function handleGestureEnd(gesture, e) {
 /* ---------- 누르는 영역 안내 ---------- */
 
 // 처음 쓰는 사람에게 화면 어디를 누르면 무엇이 되는지 한 번 보여 줍니다.
-const ZONE_HINT_KEY = 'score-viewer-zone-hint-seen';
+// 저장하지 않고 메모리에만 두어, 앱을 다시 시작하면 첫 악보에서 또 보여 줍니다.
+let zoneHintShown = false;
 const ZONE_HINT_MS = 2000;
 const ZONE_HINT_FADE_MS = 250;
 const ZONE_HINT_ITEMS = [
@@ -568,11 +569,8 @@ function hideZoneHint() {
 
 function showZoneHint() {
   // 필기 모드이거나 한 쪽짜리 악보에서는 설명할 동작이 없어 다음 기회로 미룹니다.
-  if (S.tool !== 'view' || S.count < 2) return;
-  try {
-    if (localStorage.getItem(ZONE_HINT_KEY)) return;
-    localStorage.setItem(ZONE_HINT_KEY, '1');
-  } catch { /* 기억하지 못해도 안내는 보여 줍니다 */ }
+  if (S.tool !== 'view' || S.count < 2 || zoneHintShown) return;
+  zoneHintShown = true;
 
   hideZoneHint();
   const el = document.createElement('div');
