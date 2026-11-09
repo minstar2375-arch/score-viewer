@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>악보함 설치</title>
+  <meta name="description" content="PDF 악보를 모아 보고 필기하는 앱">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    html, body { height: auto; min-height: 100%; overflow: auto; }
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100dvh;
+      margin: 0;
+      padding: 32px 16px;
+      box-sizing: border-box;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--font);
+    }
+    main { width: 100%; max-width: 380px; text-align: center; }
+    .logo { width: 88px; height: 88px; border-radius: 20px; box-shadow: var(--shadow-sm); }
+    h1 { margin: 16px 0 6px; font-size: 26px; font-weight: 700; }
+    .lead { margin: 0 0 28px; color: var(--muted); font-size: 15px; line-height: 1.5; }
+    .state[hidden], .btn[hidden], p[hidden] { display: none; }
+    .btn {
+      display: block;
+      box-sizing: border-box;
+      width: 100%;
+      min-height: 52px;
+      padding: 14px 16px;
+      border: 0;
+      border-radius: 12px;
+      background: var(--ink);
+      color: var(--ink-inverse);
+      font: inherit;
+      font-size: 16px;
+      font-weight: 600;
+      text-align: center;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .btn.plain { margin-top: 10px; background: var(--fill); color: var(--ink); }
+    .note { margin: 16px 0 0; color: var(--muted); font-size: 14px; line-height: 1.6; }
+    .status { margin: 0 0 16px; font-size: 15px; font-weight: 600; line-height: 1.5; }
+    .address {
+      display: block;
+      box-sizing: border-box;
+      width: 100%;
+      margin-top: 12px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--fill);
+      color: var(--ink);
+      font: inherit;
+      font-size: 13px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <img class="logo" src="icons/icon-192.png" alt="">
+    <h1>악보함</h1>
+    <p class="lead">PDF 악보를 모아 보고, 필기하고, 연습하는 앱</p>
+
+    <!-- 안드로이드의 다른 브라우저: Chrome으로 넘깁니다 -->
+    <section class="state" id="toChrome" hidden>
+      <p class="status">악보함은 Chrome에서 설치해 주세요.</p>
+      <a class="btn" id="chromeLink">Chrome에서 열기</a>
+      <button class="btn plain" id="copyA" type="button">주소 복사</button>
+      <p class="note">버튼을 눌러도 열리지 않으면 주소를 복사해 Chrome 주소창에 붙여 넣으세요.</p>
+      <input class="address" id="addressA" readonly aria-label="설치 주소">
+    </section>
+
+    <!-- Chrome: 설치합니다 -->
+    <section class="state" id="inChrome" hidden>
+      <p class="status" id="installed" hidden>설치했습니다. 홈 화면의 악보함 아이콘으로 여세요.</p>
+      <button class="btn" id="installBtn" type="button" hidden>앱 설치</button>
+      <p class="note" id="manualSteps">오른쪽 위 메뉴(⋮)에서 <b>앱 설치</b> 또는 <b>홈 화면에 추가</b>를 누르세요.</p>
+      <a class="btn plain" href="./">설치 없이 바로 열기</a>
+    </section>
+
+    <!-- 그 밖의 기기 -->
+    <section class="state" id="otherDevice" hidden>
+      <p class="status">안드로이드 탭이나 휴대폰의 Chrome에서 이 주소를 여세요.</p>
+      <button class="btn" id="copyB" type="button">주소 복사</button>
+      <input class="address" id="addressB" readonly aria-label="설치 주소">
+      <a class="btn plain" href="./">이 기기에서 바로 열기</a>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const $ = (id) => document.getElementById(id);
+      const ua = navigator.userAgent;
+      const pageUrl = location.origin + location.pathname;
+
+      // 이미 설치한 앱 안에서 열렸으면 설치 안내가 필요 없습니다.
+      if (matchMedia('(display-mode: standalone)').matches) {
+        location.replace('./');
+        return;
+      }
+
+      const isAndroid = /Android/i.test(ua);
+      // 삼성 인터넷, 카카오톡·네이버 등의 앱 안 브라우저도 Chrome/ 표시를 달고 있어 따로 거릅니다.
+      const notChrome = /SamsungBrowser|KAKAOTALK|KAKAOSTORY|DaumApps|NAVER|Whale|Instagram|FBAN|FBAV|FB_IAB|Line\/|EdgA|OPR\/|Firefox|DuckDuckGo|; wv\)/i;
+      const isChrome = /Chrome\//.test(ua) && !notChrome.test(ua);
+
+      const copyAddress = async (button, input) => {
+        const label = button.textContent;
+        try {
+          await navigator.clipboard.writeText(pageUrl);
+        } catch {
+          input.select();
+          document.execCommand('copy');
+        }
+        button.textContent = '복사했습니다';
+        setTimeout(() => { button.textContent = label; }, 2000);
+      };
+
+      if (isAndroid && !isChrome) {
+        const fallback = encodeURIComponent('https://play.google.com/store/apps/details?id=com.android.chrome');
+        const intent = `intent://${location.host}${location.pathname}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${fallback};end`;
+        $('chromeLink').href = intent;
+        $('addressA').value = pageUrl;
+        $('copyA').addEventListener('click', () => copyAddress($('copyA'), $('addressA')));
+        $('toChrome').hidden = false;
+        // 브라우저가 자동 이동을 막아도 위 버튼으로 넘어갈 수 있습니다.
+        // 앱 안 브라우저는 intent 주소를 모르면 오류 화면을 띄울 수 있어, 처리가 확실한 카카오톡만 자동으로 넘깁니다.
+        const canAutoOpen = !/; wv\)/.test(ua) || /KAKAOTALK/i.test(ua);
+        if (canAutoOpen) $('chromeLink').click();
+        return;
+      }
+
+      if (isAndroid) {
+        $('inChrome').hidden = false;
+        if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+        let promptEvent = null;
+        addEventListener('beforeinstallprompt', (e) => {
+          e.preventDefault();
+          promptEvent = e;
+          $('installBtn').hidden = false;
+          $('manualSteps').hidden = true;
+        });
+        $('installBtn').addEventListener('click', async () => {
+          if (!promptEvent) return;
+          const shown = promptEvent;
+          promptEvent = null;
+          $('installBtn').hidden = true;
+          $('manualSteps').hidden = false;
+          await shown.prompt();
+        });
+        addEventListener('appinstalled', () => {
+          $('installed').hidden = false;
+          $('installBtn').hidden = true;
+          $('manualSteps').hidden = true;
+        });
+        return;
+      }
+
+      $('addressB').value = pageUrl;
+      $('copyB').addEventListener('click', () => copyAddress($('copyB'), $('addressB')));
+      $('otherDevice').hidden = false;
+    })();
+  </script>
+</body>
+</html>
