@@ -1,6 +1,6 @@
 import * as db from './db.js';
 import { loadPdf, makeThumbnail } from './pdf.js';
-import { toast, confirmDialog, promptDialog, initDialog } from './ui.js';
+import { toast, hideToast, confirmDialog, promptDialog, initDialog } from './ui.js';
 import { initViewer, openViewer, closeViewer } from './viewer.js';
 import { initPiano, closePiano } from './piano.js';
 import { initRecorder, closeRecorder, setRecorderScore } from './recorder.js';
@@ -186,11 +186,30 @@ async function findSameFile(data, existing) {
   return null;
 }
 
+// 다시 받을 때 붙는 "곡 (1)" 같은 번호와 대소문자, 공백 차이는 같은 이름으로 봅니다.
+const plainName = (name) => name
+  .replace(/\s*[(（]\d+[)）]\s*$/, '')
+  .replace(/\s+/g, ' ')
+  .trim()
+  .toLowerCase();
+
 async function importOne(file, existing) {
   const name = file.name.replace(/\.pdf$/i, '');
   const data = await file.arrayBuffer();
   const same = await findSameFile(data, existing);
   if (same) return { duplicateOf: same.name };
+
+  // 이름만 같고 내용이 다르면 고친 악보일 수 있으니 물어봅니다.
+  const sameName = existing.find((s) => plainName(s.name) === plainName(name));
+  if (sameName) {
+    hideToast();
+    const yes = await confirmDialog({
+      title: '같은 이름의 악보가 있습니다',
+      message: `보관함에 "${sameName.name}"이 있습니다. 새 파일 "${file.name}"은 내용이 다릅니다. 함께 추가할까요?`,
+      ok: '추가',
+    });
+    if (!yes) return { declined: true };
+  }
 
   const doc = await loadPdf(data);
   try {
@@ -234,7 +253,7 @@ async function importFiles(fileList) {
     try {
       const result = await importOne(file, existing);
       if (result.duplicateOf) duplicates.push(result.duplicateOf);
-      else added += 1;
+      else if (!result.declined) added += 1;
     } catch (err) {
       console.error(err);
       errors.push(importErrorText(err, file.name));
@@ -244,12 +263,21 @@ async function importFiles(fileList) {
 
   const messages = [...errors];
   if (added) messages.push(`악보 ${added}개를 추가했습니다.`);
-  if (duplicates.length === 1) {
-    messages.push(`같은 파일이 이미 있어 추가하지 않았습니다: ${duplicates[0]}`);
-  } else if (duplicates.length > 1) {
-    messages.push(`같은 파일이 이미 있어 ${duplicates.length}개는 추가하지 않았습니다: ${duplicates[0]} 외 ${duplicates.length - 1}개`);
+  if (messages.length) toast(messages.join(' '), { duration: errors.length ? 6000 : 3500 });
+  else hideToast();
+
+  // 놓치지 않도록 사라지는 문구 대신 확인 창으로 알립니다.
+  if (duplicates.length) {
+    const names = [...new Set(duplicates)];
+    const list = names.slice(0, 5).map((name) => `"${name}"`).join(', ');
+    const more = names.length > 5 ? ` 외 ${names.length - 5}개` : '';
+    await confirmDialog({
+      title: '이미 있는 악보입니다',
+      message: `같은 파일이 보관함에 있어 ${duplicates.length}개를 추가하지 않았습니다: ${list}${more}`,
+      ok: '확인',
+      alertOnly: true,
+    });
   }
-  if (messages.length) toast(messages.join(' '), { duration: duplicates.length || errors.length ? 6000 : 3500 });
 }
 
 const THEME_KEY = 'score-viewer:theme';

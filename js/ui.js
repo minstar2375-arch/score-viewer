@@ -9,7 +9,12 @@ export function toast(message, { sticky = false, duration = 3500 } = {}) {
   if (!sticky) toastTimer = setTimeout(() => { el.hidden = true; }, duration);
 }
 
-function openDialog({ title, message = '', ok, danger = false, value = null }) {
+export function hideToast() {
+  clearTimeout(toastTimer);
+  toastEl().hidden = true;
+}
+
+function openDialog({ title, message = '', ok, danger = false, value = null, alertOnly = false }) {
   const dlg = document.getElementById('dlg');
   const input = document.getElementById('dlgInput');
   document.getElementById('dlgTitle').textContent = title;
@@ -18,6 +23,7 @@ function openDialog({ title, message = '', ok, danger = false, value = null }) {
   const okBtn = document.getElementById('dlgOk');
   okBtn.textContent = ok;
   okBtn.classList.toggle('danger', danger);
+  document.getElementById('dlgCancel').hidden = alertOnly;
   input.hidden = value === null;
   input.required = value !== null;
   input.value = value ?? '';
