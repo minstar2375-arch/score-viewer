@@ -3,6 +3,7 @@ import { loadPdf, makeThumbnail } from './pdf.js';
 import { toast, confirmDialog, promptDialog, initDialog } from './ui.js';
 import { initViewer, openViewer, closeViewer } from './viewer.js';
 import { initPiano, closePiano } from './piano.js';
+import { initRecorder, closeRecorder, setRecorderScore } from './recorder.js';
 
 const $ = (id) => document.getElementById(id);
 const libraryEl = $('library');
@@ -14,6 +15,30 @@ const searchEl = $('search');
 const fileInput = $('fileInput');
 
 let thumbUrls = [];
+
+const SORT_KEY = 'score-viewer:sort';
+const SORTERS = {
+  recent: (a, b) => (b.lastOpenedAt ?? b.addedAt) - (a.lastOpenedAt ?? a.addedAt),
+  name: (a, b) => a.name.localeCompare(b.name, 'ko', { numeric: true, sensitivity: 'base' }),
+};
+let sortMode = 'recent';
+try {
+  const saved = localStorage.getItem(SORT_KEY);
+  if (saved in SORTERS) sortMode = saved;
+} catch { /* 기본값을 씁니다 */ }
+
+function refreshSortButtons() {
+  for (const btn of document.querySelectorAll('[data-sort]')) {
+    btn.setAttribute('aria-pressed', btn.dataset.sort === sortMode);
+  }
+}
+
+function setSort(mode) {
+  sortMode = mode;
+  try { localStorage.setItem(SORT_KEY, mode); } catch { /* 이번 실행에만 적용됩니다 */ }
+  refreshSortButtons();
+  renderLibrary();
+}
 
 const newId = () =>
   crypto.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
@@ -103,7 +128,8 @@ function closeCardMenus() {
 
 async function renderLibrary() {
   const scores = await db.listScores();
-  scores.sort((a, b) => (b.lastOpenedAt ?? b.addedAt) - (a.lastOpenedAt ?? a.addedAt));
+  scores.sort(SORTERS[sortMode]);
+  $('sortBar').hidden = scores.length === 0;
   const query = searchEl.value.trim().toLowerCase();
   const shown = query ? scores.filter((s) => s.name.toLowerCase().includes(query)) : scores;
 
@@ -137,11 +163,32 @@ async function removeScore(score) {
   toast('삭제했습니다.');
 }
 
+function sameBytes(a, b) {
+  if (a.byteLength !== b.byteLength) return false;
+  const x = new Uint8Array(a);
+  const y = new Uint8Array(b);
+  for (let i = 0; i < x.length; i += 1) {
+    if (x[i] !== y[i]) return false;
+  }
+  return true;
+}
+
+// 이름은 바뀔 수 있으므로 내용으로 비교합니다. 크기가 같은 악보만 열어 봅니다.
+async function findSameFile(data, existing) {
+  for (const score of existing) {
+    if (score.size !== data.byteLength) continue;
+    const stored = await db.getFile(score.id);
+    if (stored && sameBytes(stored, data)) return score;
+  }
+  return null;
+}
+
 async function importOne(file, existing) {
   const name = file.name.replace(/\.pdf$/i, '');
-  if (existing.some((s) => s.name === name && s.size === file.size)) return 'duplicate';
-
   const data = await file.arrayBuffer();
+  const same = await findSameFile(data, existing);
+  if (same) return { duplicateOf: same.name };
+
   const doc = await loadPdf(data);
   try {
     const score = {
@@ -155,7 +202,7 @@ async function importOne(file, existing) {
     };
     await db.addScore(score, data);
     existing.push(score);
-    return 'added';
+    return {};
   } finally {
     await doc.destroy();
   }
@@ -177,14 +224,14 @@ async function importFiles(fileList) {
 
   const existing = await db.listScores();
   let added = 0;
-  let duplicates = 0;
+  const duplicates = [];
   const errors = [];
   for (const [i, file] of pdfs.entries()) {
     toast(pdfs.length > 1 ? `악보 추가 중… (${i + 1}/${pdfs.length})` : '악보 추가 중…', { sticky: true });
     try {
       const result = await importOne(file, existing);
-      if (result === 'added') added += 1;
-      else duplicates += 1;
+      if (result.duplicateOf) duplicates.push(result.duplicateOf);
+      else added += 1;
     } catch (err) {
       console.error(err);
       errors.push(importErrorText(err, file.name));
@@ -192,9 +239,14 @@ async function importFiles(fileList) {
   }
   await renderLibrary();
 
-  if (errors.length) toast(errors.join(' '));
-  else if (added) toast(`악보 ${added}개를 추가했습니다.`);
-  else if (duplicates) toast('이미 보관함에 있는 악보입니다.');
+  const messages = [...errors];
+  if (added) messages.push(`악보 ${added}개를 추가했습니다.`);
+  if (duplicates.length === 1) {
+    messages.push(`같은 파일이 이미 있어 추가하지 않았습니다: ${duplicates[0]}`);
+  } else if (duplicates.length > 1) {
+    messages.push(`같은 파일이 이미 있어 ${duplicates.length}개는 추가하지 않았습니다: ${duplicates[0]} 외 ${duplicates.length - 1}개`);
+  }
+  if (messages.length) toast(messages.join(' '), { duration: duplicates.length || errors.length ? 6000 : 3500 });
 }
 
 const THEME_KEY = 'score-viewer:theme';
@@ -231,6 +283,7 @@ async function route() {
   const token = ++routeToken;
   const match = location.hash.match(/^#\/score\/(.+)$/);
   closePiano();
+  await closeRecorder();
   await closeViewer();
   if (token !== routeToken) return;
 
@@ -242,7 +295,9 @@ async function route() {
   libraryEl.hidden = true;
   viewerEl.hidden = false;
   try {
-    await openViewer(decodeURIComponent(match[1]));
+    const id = decodeURIComponent(match[1]);
+    setRecorderScore(id);
+    await openViewer(id);
   } catch (err) {
     console.error(err);
     if (token !== routeToken) return;
@@ -278,7 +333,12 @@ prefersDark.addEventListener('change', refreshThemeUi);
 initDialog();
 initViewer();
 initPiano();
+initRecorder();
 initDropZone();
+refreshSortButtons();
+for (const btn of document.querySelectorAll('[data-sort]')) {
+  btn.addEventListener('click', () => setSort(btn.dataset.sort));
+}
 
 for (const btn of document.querySelectorAll('[data-add]')) {
   btn.addEventListener('click', () => fileInput.click());

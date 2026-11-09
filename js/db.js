@@ -2,21 +2,36 @@
 //   scores: 목록에 필요한 정보 (제목, 쪽수, 마지막으로 본 쪽, 썸네일)
 //   files:  PDF 원본
 //   notes:  쪽별 필기 (key = "악보ID:쪽번호")
+//   recordings: 악보별 연습 녹음
 
 const DB_NAME = 'score-viewer';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 let dbPromise;
 
 function openDb() {
   dbPromise ??= new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
+    // 이미 저장된 악보와 필기가 지워지지 않도록, 없는 저장소만 새로 만듭니다.
     req.onupgradeneeded = () => {
       const db = req.result;
-      db.createObjectStore('scores', { keyPath: 'id' });
-      db.createObjectStore('files', { keyPath: 'id' });
-      db.createObjectStore('notes', { keyPath: 'key' }).createIndex('scoreId', 'scoreId');
+      const has = (name) => db.objectStoreNames.contains(name);
+      if (!has('scores')) db.createObjectStore('scores', { keyPath: 'id' });
+      if (!has('files')) db.createObjectStore('files', { keyPath: 'id' });
+      if (!has('notes')) {
+        db.createObjectStore('notes', { keyPath: 'key' }).createIndex('scoreId', 'scoreId');
+      }
+      if (!has('recordings')) {
+        db.createObjectStore('recordings', { keyPath: 'id' }).createIndex('scoreId', 'scoreId');
+      }
     };
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => {
+      const db = req.result;
+      db.onversionchange = () => {
+        db.close();
+        dbPromise = undefined;
+      };
+      resolve(db);
+    };
     req.onerror = () => reject(req.error);
   });
   return dbPromise;
@@ -55,14 +70,25 @@ export async function getFile(id) {
 }
 
 export const deleteScore = (id) =>
-  run(['scores', 'files', 'notes'], 'readwrite', (tx) => {
+  run(['scores', 'files', 'notes', 'recordings'], 'readwrite', (tx) => {
     tx.objectStore('scores').delete(id);
     tx.objectStore('files').delete(id);
-    const notes = tx.objectStore('notes');
-    notes.index('scoreId').getAllKeys(id).onsuccess = (e) => {
-      for (const key of e.target.result) notes.delete(key);
-    };
+    for (const name of ['notes', 'recordings']) {
+      const store = tx.objectStore(name);
+      store.index('scoreId').getAllKeys(id).onsuccess = (e) => {
+        for (const key of e.target.result) store.delete(key);
+      };
+    }
   });
+
+export const listRecordings = (scoreId) =>
+  run('recordings', 'readonly', (tx) => tx.objectStore('recordings').index('scoreId').getAll(scoreId));
+
+export const addRecording = (recording) =>
+  run('recordings', 'readwrite', (tx) => tx.objectStore('recordings').put(recording));
+
+export const deleteRecording = (id) =>
+  run('recordings', 'readwrite', (tx) => tx.objectStore('recordings').delete(id));
 
 export async function getNotes(scoreId, page) {
   const row = await run('notes', 'readonly', (tx) =>

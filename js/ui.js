@@ -1,12 +1,12 @@
 const toastEl = () => document.getElementById('toast');
 let toastTimer;
 
-export function toast(message, { sticky = false } = {}) {
+export function toast(message, { sticky = false, duration = 3500 } = {}) {
   const el = toastEl();
   el.textContent = message;
   el.hidden = false;
   clearTimeout(toastTimer);
-  if (!sticky) toastTimer = setTimeout(() => { el.hidden = true; }, 3500);
+  if (!sticky) toastTimer = setTimeout(() => { el.hidden = true; }, duration);
 }
 
 function openDialog({ title, message = '', ok, danger = false, value = null }) {
