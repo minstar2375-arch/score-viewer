@@ -213,6 +213,22 @@ function noteOn(midi) {
 }
 
 // 건반에서 손을 떼면 댐퍼가 내려앉듯 빠르게 소리가 줄어듭니다.
+// 마디를 재생하기 전에 필요한 피아노 녹음을 미리 불러옵니다(최대 2초 기다림).
+export async function preloadNotes(midis) {
+  if (!ensureAudio()) return;
+  const loads = [];
+  for (const note of new Set(midis.map(nearestSampleNote))) {
+    loadSample(note);
+    const loading = sampleLoads.get(note);
+    if (loading) loads.push(loading);
+  }
+  if (!loads.length) return;
+  await Promise.race([
+    Promise.allSettled(loads),
+    new Promise((resolve) => { setTimeout(resolve, 2000); }),
+  ]);
+}
+
 // 악보에서 누른 음을 들려줍니다. 녹음이 아직 없으면 잠시 기다렸다가 재생합니다.
 export async function playNote(midi, seconds = 1.6) {
   if (!ensureAudio()) return;

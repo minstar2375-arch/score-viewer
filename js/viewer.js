@@ -50,6 +50,39 @@ let paintQueued = false;
 
 /* ---------- PDF 렌더링 ---------- */
 
+// 음 듣기에서 마디를 정확히 읽도록 지금 쪽을 화면보다 크게 그린 그림입니다(한 장만 기억).
+let hiRes = null; // { key, promise }
+
+export function pageImage(minWidth) {
+  if (!S.doc) return Promise.resolve(null);
+  const n = S.page;
+  const key = `${S.score?.id}:${n}:${Math.round(minWidth)}`;
+  if (hiRes?.key !== key) {
+    const doc = S.doc;
+    hiRes = {
+      key,
+      promise: doc.getPage(n).then(async (page) => {
+        const base = page.getViewport({ scale: 1 });
+        const cap = Math.sqrt(MAX_CANVAS_PIXELS / (base.width * base.height));
+        const viewport = page.getViewport({ scale: Math.min(minWidth / base.width, cap) });
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.floor(viewport.width);
+        canvas.height = Math.floor(viewport.height);
+        await page.render({
+          canvasContext: canvas.getContext('2d', { alpha: false, willReadFrequently: true }),
+          viewport,
+        }).promise;
+        return canvas;
+      }).catch((err) => {
+        console.warn('고해상도 쪽을 그리지 못했습니다', err);
+        hiRes = null;
+        return null;
+      }),
+    };
+  }
+  return hiRes.promise;
+}
+
 async function metric(n) {
   const { doc } = S;
   if (!doc) throw new Error('document closed');
@@ -537,6 +570,7 @@ function handleGestureEnd(gesture, e) {
   if (S.tool === 'listen') {
     if (S.ready) {
       listenAt({
+        pageImage,
         canvas: els.pdf,
         sheet: els.sheet,
         stage: els.stage,
@@ -855,6 +889,7 @@ export async function closeViewer() {
   S.items = [];
   evict(new Set());
   sizes.clear();
+  hiRes = null;
   els.pdf.width = 0;
   els.ink.width = 0;
   committed.width = 0;
