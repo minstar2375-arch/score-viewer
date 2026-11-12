@@ -1,6 +1,7 @@
 import * as db from './db.js';
 import { loadPdf } from './pdf.js';
 import { toast, confirmDialog } from './ui.js';
+import { listenAt, clearListen, resetListenCache } from './listen.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -16,6 +17,8 @@ const FONT = '-apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun 
 const MAX_CANVAS_PIXELS = 16_000_000; // iOS Safari 캔버스 한도(약 16.7MP) 이내
 const ERASER_RADIUS = 12;
 const PEN_SEEN_KEY = 'score-viewer:pen-seen';
+// 악보 위에 그리는 도구입니다. '보기'와 '음 듣기'는 화면 누르기를 그대로 받습니다.
+const DRAW_TOOLS = new Set(['pen', 'hl', 'text', 'eraser']);
 
 const S = {
   score: null,
@@ -103,6 +106,7 @@ function evict(keep) {
 async function showPage(n) {
   if (!S.doc) return;
   finishInteractions();
+  clearListen();
   n = Math.min(Math.max(n, 1), S.count);
   const token = ++showToken;
   const samePage = n === S.page && S.ready;
@@ -428,7 +432,7 @@ function onPointerDown(e) {
   // 펜을 쓰는 기기에서는 손바닥이 닿아도 그려지지 않도록 손가락 입력을 무시합니다.
   const drawsWithThis = !(e.pointerType === 'touch' && S.penSeen);
 
-  if (S.tool !== 'view' && onSheet && drawsWithThis && S.ready) {
+  if (DRAW_TOOLS.has(S.tool) && onSheet && drawsWithThis && S.ready) {
     e.preventDefault();
     action = { kind: S.tool, id: e.pointerId, pointerType: e.pointerType, rect, erased: false };
     els.stage.setPointerCapture(e.pointerId);
@@ -515,7 +519,7 @@ const JUMP_ZONE_RATIO = 1 / 3;
 
 function handleGestureEnd(gesture, e) {
   // 필기 모드에서는 손바닥이 닿아 쪽이 넘어가는 일이 없도록 넘기지 않습니다.
-  if (S.tool !== 'view') return;
+  if (S.tool !== 'view' && S.tool !== 'listen') return;
 
   const dx = e.clientX - gesture.startX;
   const dy = e.clientY - gesture.startY;
@@ -528,6 +532,22 @@ function handleGestureEnd(gesture, e) {
     return;
   }
   if (moved > 10 || elapsed > 500) return;
+
+  // 음 듣기 도구에서는 누른 음표의 소리를 들려줍니다. 밀어서 쪽 넘기기는 그대로 됩니다.
+  if (S.tool === 'listen') {
+    if (S.ready) {
+      listenAt({
+        canvas: els.pdf,
+        sheet: els.sheet,
+        stage: els.stage,
+        clientX: e.clientX,
+        clientY: e.clientY,
+        scoreId: S.score.id,
+        page: S.page,
+      });
+    }
+    return;
+  }
 
   const rect = els.stage.getBoundingClientRect();
   const ratio = (e.clientX - rect.left) / rect.width;
@@ -638,22 +658,29 @@ function setChromeHidden(hidden) {
   els.viewer.classList.toggle('immersive', hidden);
 }
 
+let listenIntroShown = false;
+
 function setTool(tool) {
   finishInteractions();
+  clearListen();
   S.tool = tool;
   for (const btn of els.tools) {
     const on = btn.dataset.tool === tool;
     btn.classList.toggle('active', on);
     btn.setAttribute('aria-pressed', on);
   }
-  els.stage.classList.toggle('drawing', tool !== 'view');
+  els.stage.classList.toggle('drawing', DRAW_TOOLS.has(tool));
   els.stage.classList.toggle('tool-text', tool === 'text');
   const hasStyle = tool === 'pen' || tool === 'hl' || tool === 'text';
-  els.options.hidden = tool === 'view';
+  els.options.hidden = !DRAW_TOOLS.has(tool);
   els.colors.hidden = !hasStyle;
   els.sizes.hidden = !hasStyle;
   els.clear.hidden = tool !== 'eraser';
   if (hasStyle) refreshOptions();
+  if (tool === 'listen' && !listenIntroShown) {
+    listenIntroShown = true;
+    toast('모르는 음표를 누르면 소리가 납니다.', { duration: 2500 });
+  }
 }
 
 function refreshOptions() {
@@ -793,6 +820,7 @@ export async function openViewer(id) {
     return;
   }
 
+  resetListenCache();
   Object.assign(S, {
     score,
     doc,
@@ -815,6 +843,7 @@ export async function closeViewer() {
   openToken += 1;
   showToken += 1;
   hideZoneHint();
+  clearListen();
   if (!S.doc) return;
   finishInteractions();
   allowScreenOff();
@@ -880,7 +909,7 @@ export function initViewer() {
   els.stage.addEventListener('pointerup', onPointerUp);
   els.stage.addEventListener('pointercancel', onPointerUp);
   els.stage.addEventListener('contextmenu', (e) => {
-    if (S.tool !== 'view') e.preventDefault();
+    if (S.tool !== 'view' && S.tool !== 'listen') e.preventDefault();
   });
   els.textEntry.addEventListener('blur', () => commitTextEntry());
   addEventListener('keydown', onKeyDown);

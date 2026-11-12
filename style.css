@@ -902,7 +902,8 @@ button.primary .icon { width: 18px; height: 18px; stroke-width: 2; }
   .bar-row { flex-wrap: wrap; padding: 4px; }
   .rec-pill { top: calc(env(safe-area-inset-top) + 160px); }
   .tools { order: 3; width: 100%; justify-content: space-between; }
-  .tool { flex: 1; }
+  .tool { flex: 1; min-width: 0; padding: 0; }
+  .tool-divider { margin: 0 1px; }
   .lib-header { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
   .lib-main { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
   .grid { grid-template-columns: repeat(auto-fill, minmax(136px, 1fr)); gap: 24px 16px; }
@@ -956,3 +957,69 @@ dialog input {
 @media (prefers-reduced-motion: reduce) {
   .thumb, .tb, .zone-hint { transition: none; }
 }
+
+/* 음 듣기: 누른 음표 표시와 음 이름 말풍선 */
+.listen-marker {
+  position: absolute;
+  z-index: 4;
+  box-sizing: border-box;
+  border: 2.5px solid var(--accent);
+  border-radius: 50%;
+  background: rgb(37 99 235 / 0.12);
+  pointer-events: none;
+}
+.listen-bubble {
+  position: absolute;
+  z-index: 6;
+  width: min(420px, calc(100% - 16px));
+  padding: 10px;
+  box-sizing: border-box;
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-lg);
+  font-variant-numeric: tabular-nums;
+}
+.lb-head { display: flex; align-items: center; gap: 8px; }
+.lb-play, .lb-close, .lb-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 12px;
+  color: var(--ink);
+  touch-action: manipulation;
+}
+.lb-play { background: var(--accent); color: #fff; }
+.lb-close { background: transparent; color: var(--muted); }
+.lb-more { background: transparent; color: var(--muted); }
+.lb-more.active { background: var(--fill); color: var(--ink); }
+.lb-settings[hidden] { display: none; }
+.lb-settings { margin-top: 2px; padding-top: 2px; border-top: 1px solid var(--line); }
+.lb-name { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 6px; white-space: nowrap; overflow: hidden; }
+.lb-acc { display: flex; gap: 4px; flex: none; }
+.lb-acc .lb-btn { flex: none; width: 36px; font-size: 20px; line-height: 1; }
+.lb-solfege { font-size: 24px; font-weight: 700; line-height: 1.1; }
+.lb-letter { font-size: 15px; color: var(--muted); }
+.lb-row { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+.lb-btn {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--fill);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  touch-action: manipulation;
+}
+.lb-btn.active { background: var(--ink); color: var(--ink-inverse); }
+.lb-key .lb-label { flex: none; width: 34px; font-size: 13px; color: var(--muted); }
+.lb-key .lb-btn { flex: none; width: 44px; font-size: 20px; line-height: 1; }
+.lb-keytext { flex: 1; text-align: center; font-size: 14px; font-weight: 600; }
+.lb-note { margin: 6px 2px 0; font-size: 12.5px; color: var(--muted); line-height: 1.4; }
+.lb-note[hidden] { display: none; }
